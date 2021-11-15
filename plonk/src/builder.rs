@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
-use crate::permutations::Copy;
 use ark_bls12_381::Fr;
+use permutation::PermutationBuilder;
+use std::collections::HashMap;
 struct CircuitBuilder {
     gates: Vec<Gate>,
-    copy_constrains: HashMap<usize, Vec<Copy>>,
+    permutation: PermutationBuilder<3>,
 }
 
 struct GeneralGate {
@@ -28,10 +27,10 @@ impl CircuitBuilder {
     fn add_gate(&mut self, gate: Gate, a: Var, b: Var) -> Var {
         self.gates.push(gate);
         let index = self.gates.len() - 1;
-        let copy1 = a.0.map(|copy| Copy::Left(copy));
-        let copy2 = b.0.map(|copy| Copy::Right(copy));
-        let constrains = vec![copy1, copy2].into_iter().filter_map(|e| e).collect();
-        self.copy_constrains.insert(index, constrains);
+        //let copy1 = a.0.map(|copy| Copy::Left(copy));
+        //let copy2 = b.0.map(|copy| Copy::Right(copy));
+        //let constrains = vec![copy1, copy2].into_iter().filter_map(|e| e).collect();
+        //self.copy_constrains.insert(index, constrains);
         Var(Some(index))
     }
     ///adds a multiplication gate

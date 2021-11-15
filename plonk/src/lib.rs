@@ -1,31 +1,25 @@
 use ark_bls12_381::Fr;
 use ark_ec::PairingEngine;
-use ark_ff::{BigInteger256, FftField, Fp256, UniformRand};
+use ark_ff::{BigInteger256, One, UniformRand};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
-    Polynomial, UVPolynomial,
+    UVPolynomial,
 };
-use commitment::{print_poly, KzgCommitment, KzgScheme};
-use permutations::CopyConstrains;
-use srs::Srs;
-use std::{
-    convert::TryInto,
-    io::{repeat, Read},
-    iter::repeat_with,
-};
+use kgz::srs::Srs;
+use kgz::{KzgCommitment, KzgScheme};
+use permutation::CompiledPermutation;
+use std::{convert::TryInto, iter::repeat_with};
 
 mod builder;
-mod commitment;
 mod interpolation;
-mod permutations;
 mod prof;
-mod srs;
 
 pub struct Circuit {
     gate_constrains: GateConstrains,
-    copy_constrains: CopyConstrains,
+    copy_constrains: CompiledPermutation<3>,
     srs: Srs,
     domain: GeneralEvaluationDomain<Fr>,
+    rows: usize,
 }
 pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
@@ -34,7 +28,7 @@ pub type Poly = DensePolynomial<Fr>;
 struct GateConstrains {
     q_l: Poly,
     q_r: Poly,
-    q_0: Poly,
+    q_o: Poly,
     q_m: Poly,
     q_c: Poly,
 }
@@ -137,8 +131,24 @@ impl Circuit {
         vars: [&Poly; 3],
         sigmas: [&Poly; 3],
         blinding: Poly,
-        challenge: (Fr, Fr),
+        challenge: (Fr, Fr, Fr),
     ) -> (KzgCommitment, KzgCommitment, KzgCommitment) {
+        let [a, b, c] = vars;
+        let GateConstrains {
+            q_l,
+            q_r,
+            q_o,
+            q_m,
+            q_c,
+        } = &self.gate_constrains;
+        let part1 = &(a * q_l + b * q_r + &(a * b) * (q_m) + c * q_o) + q_c;
+        let (beta, gamma, alpha) = challenge;
+        let cosets = [Fr::one(), Self::CS1, Self::CS2];
+        let factor =
+            |var: &Poly, coset: Fr| var + &Poly::from_coefficients_slice(&[gamma, beta * coset]);
+        let part2 = &(&factor(a, cosets[0]) * &factor(b, cosets[1])) * &factor(c, cosets[2]);
+        let [sg1, sg2, sg3] = sigmas;
+        let part3 = &(&factor(sg1, cosets[0]) * &factor(sg2, cosets[1])) * &factor(sg3, cosets[2]);
         todo!()
     }
     fn iter_evals(evals: [Evaluations<Fr>; 3]) -> impl Iterator<Item = (Fr, Fr, Fr)> {
@@ -159,6 +169,7 @@ impl Circuit {
 }
 #[test]
 fn vanish() {
+    use kgz::print_poly;
     let poly = Poly::from_coefficients_slice(&[Fr::from(1), Fr::from(2), Fr::from(3)]);
     print_poly(&poly);
     println!("{:#?}", poly);
