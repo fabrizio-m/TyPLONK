@@ -22,14 +22,11 @@ impl Circuit {
 struct PolyProof {
     commitment: KzgCommitment,
     opening: KzgOpening,
-    evaluation: Fr,
 }
 struct PermutationProof {
     commitment: KzgCommitment,
-    first_opening: KzgOpening,
-    first_evaluation: Fr,
-    second_opening: KzgOpening,
-    second_evaluation: Fr,
+    z: KzgOpening,
+    zw: KzgOpening,
 }
 struct Proof {
     a: PolyProof,
@@ -41,18 +38,57 @@ fn prove(circuit: &Circuit, advice: [Poly; 3]) -> Proof {
     let scheme = KzgScheme::new(&circuit.srs);
     let domain = &circuit.domain;
     let rows = circuit.rows;
+    let w = domain.element(1);
 
-    let [a, b, c] = advice;
     let (advice_blind, perm_blind) = blind_polys(domain);
-    let commitments = round1(&a, &b, &c, advice_blind, &scheme);
+    let commitments = {
+        let [a, b, c] = &advice;
+        round1(&a, &b, &c, advice_blind, &scheme)
+    };
     let challenge_generator = ChallengeGenerator::with_digest(&commitments);
     let [beta, lambda] = challenge_generator.generate_challenges();
-    let [commit_a, commit_b, commit_c] = commitments;
+    //let [commit_a, commit_b, commit_c] = commitments;
     let values = advice.map(|e| e.coeffs);
 
-    let permutation_proof = {
-        let permutation_proof = circuit.copy_constrains.prove(&values, beta, lambda);
+    let (acc_poly, acc_commitment) = {
+        let acc_coeffs = circuit.copy_constrains.prove(&values, beta, lambda);
+        let acc = DensePolynomial::from_coefficients_vec(acc_coeffs);
+        let acc = acc + perm_blind;
+        let commitment = scheme.commit(&acc);
+        (acc, commitment)
     };
+    let [a, b, c] = values.map(|e| DensePolynomial::from_coefficients_vec(e));
+    let mut challenge_generator = ChallengeGenerator::with_digest(&commitments);
+    challenge_generator.digest(&acc_commitment);
+
+    let evaluation_point = domain.element(challenge_generator.generate_evaluation_point(rows));
+    let proof = {
+        //todo: use array zip
+        let mut commitments = commitments.into_iter();
+        let openings = [a, b, c].map(|poly| {
+            let commitment = commitments.next().unwrap();
+            let opening = scheme.open(poly, evaluation_point);
+            PolyProof {
+                commitment,
+                opening,
+            }
+        });
+        let [a, b, c] = openings;
+        let z = scheme.open(acc_poly.clone(), evaluation_point);
+        let zw = scheme.open(acc_poly, evaluation_point * w);
+        let permutation = PermutationProof {
+            commitment: acc_commitment,
+            z,
+            zw,
+        };
+        Proof {
+            a,
+            b,
+            c,
+            permutation,
+        }
+    };
+    proof
 }
 
 fn round1(
@@ -65,7 +101,7 @@ fn round1(
     [a, b, c]
         .iter()
         .zip(blinding.iter())
-        .map(|(poly, blind)| scheme.commit(*poly + blind))
+        .map(|(poly, blind)| scheme.commit(&(*poly + blind)))
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()

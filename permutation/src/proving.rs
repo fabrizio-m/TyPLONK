@@ -86,7 +86,7 @@ fn domain() {
         println!("{}", elem);
     });
     let w = domain.element(1);
-    println!("w+w: {}", w * w);
+    println!("w*w: {}", w * w);
     let set = domain.elements().collect::<HashSet<Fr>>();
     let mut k1 = Fr::from(1);
     while domain.evaluate_vanishing_polynomial(k1).is_zero() {

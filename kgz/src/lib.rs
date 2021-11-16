@@ -18,17 +18,17 @@ impl KzgCommitment {
         &self.0
     }
 }
-pub struct KzgOpening(G1Point);
+pub struct KzgOpening(G1Point, Fr);
 
 impl<'a> KzgScheme<'a> {
     pub fn new(srs: &'a Srs) -> Self {
         Self(&srs)
     }
-    pub fn commit(&self, polynomial: MyPoly) -> KzgCommitment {
+    pub fn commit(&self, polynomial: &MyPoly) -> KzgCommitment {
         let commitment = self.evaluate_in_s(polynomial);
         KzgCommitment(commitment)
     }
-    fn evaluate_in_s(&self, polynomial: MyPoly) -> G1Point {
+    fn evaluate_in_s(&self, polynomial: &MyPoly) -> G1Point {
         let srs = self.0.g1_ref();
         assert!(srs.len() > polynomial.degree());
         let poly = polynomial.coeffs.iter();
@@ -49,8 +49,8 @@ impl<'a> KzgScheme<'a> {
         *first -= evaluation_at_z;
         let root = MyPoly::from_coefficients_slice(&[-(z), 1.into()]);
         let new_poly = &polynomial / &root;
-        let opening = self.evaluate_in_s(new_poly);
-        KzgOpening(opening)
+        let opening = self.evaluate_in_s(&new_poly);
+        KzgOpening(opening, evaluation_at_z)
     }
     pub fn verify(
         &self,
@@ -82,7 +82,7 @@ fn commit() {
     let srs = Srs::from_secret(Fr::from(2), 10);
     let scheme = KzgScheme(&srs);
     let poly = MyPoly::from_coefficients_slice(&[1.into(), 2.into(), 3.into()]);
-    let commitment = scheme.commit(poly.clone());
+    let commitment = scheme.commit(&poly);
     let d = Fr::from(1_i32);
     assert_eq!(
         commitment.0.into_projective(),
