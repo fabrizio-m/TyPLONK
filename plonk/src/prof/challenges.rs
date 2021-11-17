@@ -1,13 +1,10 @@
 use ark_bls12_381::Fr;
-use ark_ff::{bytes::ToBytes, BigInteger256, One, UniformRand};
-use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
-};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_ff::UniformRand;
+use ark_serialize::CanonicalSerialize;
 use blake2::{Blake2b, Digest};
-use kgz::{KzgCommitment, KzgOpening, KzgScheme};
+use kgz::KzgCommitment;
 use rand::{prelude::StdRng, Rng, SeedableRng};
-use std::{convert::TryInto, io::Write, iter::repeat_with};
+
 pub struct ChallengeGenerator {
     data: Vec<u8>,
 }

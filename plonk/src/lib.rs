@@ -1,6 +1,7 @@
 use ark_bls12_381::Fr;
 use ark_ec::PairingEngine;
-use ark_ff::{BigInteger256, One, UniformRand};
+use ark_ff::{BigInteger256, One, UniformRand, Zero};
+use ark_poly::Polynomial;
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
     UVPolynomial,
@@ -90,6 +91,18 @@ impl Circuit {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
+    }
+    fn check_row(&self, advice: [Fr; 3], point: Fr) -> bool {
+        let constrains = &self.gate_constrains;
+        let q_l = constrains.q_l.evaluate(&point);
+        let q_r = constrains.q_r.evaluate(&point);
+        let q_o = constrains.q_o.evaluate(&point);
+        let q_m = constrains.q_m.evaluate(&point);
+        let q_c = constrains.q_c.evaluate(&point);
+        let [a, b, c] = advice;
+
+        let result = a * q_l + b + q_r - c * q_o + q_m * a * b + q_c;
+        result.is_zero()
     }
 }
 #[test]

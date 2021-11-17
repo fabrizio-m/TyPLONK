@@ -1,6 +1,5 @@
 use ark_bls12_381::Fr;
 use permutation::PermutationBuilder;
-use std::collections::HashMap;
 struct CircuitBuilder {
     gates: Vec<Gate>,
     permutation: PermutationBuilder<3>,

@@ -10,7 +10,7 @@ pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
 pub type Poly = DensePolynomial<Fr>;
 pub struct KzgScheme<'a>(&'a Srs);
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct KzgCommitment(G1Point);
 
 impl KzgCommitment {
@@ -18,7 +18,14 @@ impl KzgCommitment {
         &self.0
     }
 }
+#[derive(Debug, Clone, Copy)]
 pub struct KzgOpening(G1Point, Fr);
+
+impl KzgOpening {
+    pub fn eval(self) -> Fr {
+        self.1
+    }
+}
 
 impl<'a> KzgScheme<'a> {
     pub fn new(srs: &'a Srs) -> Self {
@@ -52,18 +59,20 @@ impl<'a> KzgScheme<'a> {
         let opening = self.evaluate_in_s(&new_poly);
         KzgOpening(opening, evaluation_at_z)
     }
+    ///verifies the opening P(z) = y
     pub fn verify(
         &self,
-        commitment: KzgCommitment,
-        opening: KzgOpening,
+        commitment: &KzgCommitment,
+        opening: &KzgOpening,
         z: impl Into<Fr> + Debug + Display,
-        y: impl Into<Fr> + Debug,
+        //y: impl Into<Fr> + Debug,
     ) -> bool {
+        let y = opening.1;
         let g1 = self.0.g1_ref();
         let g2s = self.0.g2s_ref();
         let g2 = self.0.g2_ref();
         let a = g2s.clone().into_projective() - (g2.mul(z.into()));
-        let b = commitment.0.into_projective() - G1Point::prime_subgroup_generator().mul(y.into());
+        let b = commitment.0.into_projective() - G1Point::prime_subgroup_generator().mul(y);
         let pairing1 = Bls12_381::pairing(opening.0, a);
         let pairing2 = Bls12_381::pairing(b, g2.clone());
         pairing1 == pairing2
@@ -90,5 +99,5 @@ fn commit() {
     );
     assert!(poly.evaluate(&d) == 6.into());
     let opening = scheme.open(poly, d);
-    assert!(scheme.verify(commitment, opening, d, 6));
+    assert!(scheme.verify(&commitment, &opening, d));
 }

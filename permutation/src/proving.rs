@@ -30,14 +30,14 @@ impl<const C: usize> CompiledPermutation<C> {
         values: [Fr; C],
         acc_evals: (Fr, Fr),
         beta: Fr,
-        lamba: Fr,
+        lambda: Fr,
     ) -> bool {
         let perms = self.cols.iter().map(|e| e[point].clone());
         let (num, den) = perms
             .zip(values)
             .map(|((label, value), val)| {
-                let num = val + beta * label + lamba;
-                let den = val + beta * value + lamba;
+                let num = val + beta * label + lambda;
+                let den = val + beta * value + lambda;
                 (num, den)
             })
             .reduce(|(num1, den1), (num2, den2)| (num1 * num2, den1 * den2))

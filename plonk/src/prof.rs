@@ -1,14 +1,9 @@
 use crate::{Circuit, Poly, Prof};
 use ark_bls12_381::Fr;
-use ark_ff::{bytes::ToBytes, BigInteger256, One, UniformRand};
-use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
-};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use blake2::{Blake2b, Digest};
+use ark_ff::UniformRand;
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use kgz::{KzgCommitment, KzgOpening, KzgScheme};
-use rand::{prelude::StdRng, Rng, SeedableRng};
-use std::{convert::TryInto, io::Write, iter::repeat_with};
+use std::{convert::TryInto, iter::repeat_with};
 
 use self::challenges::ChallengeGenerator;
 mod challenges;
@@ -33,6 +28,7 @@ struct Proof {
     b: PolyProof,
     c: PolyProof,
     permutation: PermutationProof,
+    evaluation_point: Fr,
 }
 fn prove(circuit: &Circuit, advice: [Poly; 3]) -> Proof {
     let scheme = KzgScheme::new(&circuit.srs);
@@ -86,9 +82,70 @@ fn prove(circuit: &Circuit, advice: [Poly; 3]) -> Proof {
             b,
             c,
             permutation,
+            evaluation_point,
         }
     };
     proof
+}
+fn verify(circuit: &Circuit, proof: Proof, scheme: &KzgScheme) -> bool {
+    let domain = &circuit.domain;
+    let challenges = verify_challenges(&proof, circuit.rows);
+    let (beta, lambda, point) = challenges;
+    let (advice, acc) = match verify_openings(proof, scheme) {
+        Some(evals) => evals,
+        None => {
+            return false;
+        }
+    };
+    if !circuit.check_row(advice, domain.element(point)) {
+        return false;
+    }
+    circuit
+        .copy_constrains
+        .verify(point, advice, acc, beta, lambda)
+}
+fn verify_challenges(proof: &Proof, rows: usize) -> (Fr, Fr, usize) {
+    let commitments = [&proof.a, &proof.b, &proof.c].map(|proof| proof.commitment.clone());
+    let challenge_generator = ChallengeGenerator::with_digest(&commitments);
+    let challenge: [Fr; 2] = challenge_generator.generate_challenges();
+    let mut challenge_generator = ChallengeGenerator::with_digest(&commitments);
+    challenge_generator.digest(&proof.permutation.commitment);
+    let perm = challenge_generator.generate_evaluation_point(rows);
+
+    (challenge[0], challenge[1], perm)
+}
+fn verify_openings(proof: Proof, scheme: &KzgScheme) -> Option<([Fr; 3], (Fr, Fr))> {
+    let Proof {
+        a,
+        b,
+        c,
+        permutation,
+        evaluation_point,
+    } = proof;
+    let advice = [a, b, c];
+
+    let valid = advice.iter().all(|proof| {
+        let PolyProof {
+            commitment,
+            opening,
+        } = proof;
+        scheme.verify(commitment, opening, evaluation_point)
+    });
+    if !valid {
+        return None;
+    };
+    let advice = advice.map(|proof| proof.opening.eval());
+    let acc = {
+        let PermutationProof { commitment, z, zw } = permutation;
+        let zv = scheme.verify(&commitment, &z, evaluation_point);
+        let zwv = scheme.verify(&commitment, &zw, evaluation_point);
+        if zv && zwv {
+            (z.eval(), zw.eval())
+        } else {
+            return None;
+        }
+    };
+    Some((advice, acc))
 }
 
 fn round1(
