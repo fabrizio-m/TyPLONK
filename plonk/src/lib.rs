@@ -1,21 +1,18 @@
 use ark_bls12_381::Fr;
 use ark_ec::PairingEngine;
 use ark_ff::{BigInteger256, One, UniformRand, Zero};
-use ark_poly::Polynomial;
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
-    UVPolynomial,
+    Polynomial, UVPolynomial,
 };
-use kgz::srs::Srs;
-use kgz::{KzgCommitment, KzgScheme};
+use kgz::{srs::Srs, KzgCommitment, KzgScheme};
 use permutation::CompiledPermutation;
 use std::{convert::TryInto, iter::repeat_with};
 
 mod builder;
-mod interpolation;
-mod prof;
+mod proof;
 
-pub struct Circuit {
+pub struct CompiledCircuit {
     gate_constrains: GateConstrains,
     copy_constrains: CompiledPermutation<3>,
     srs: Srs,
@@ -39,7 +36,7 @@ pub struct Prof {
     c: KzgCommitment,
 }
 
-impl Circuit {
+impl CompiledCircuit {
     //cosets stolen from dusk
     const CS1: Fr = Self::coset([7, 0, 0, 0]);
     const CS2: Fr = Self::coset([13, 0, 0, 0]);

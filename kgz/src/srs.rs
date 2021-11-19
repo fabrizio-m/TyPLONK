@@ -50,8 +50,3 @@ impl Srs {
         &self.g2s
     }
 }
-#[test]
-fn generate_srs() {
-    let test = Srs::random(3);
-    println!("srs:{:#?}", test);
-}

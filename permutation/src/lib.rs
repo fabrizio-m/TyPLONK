@@ -33,10 +33,10 @@ pub struct PermutationBuilder<const C: usize> {
 }
 
 impl<const C: usize> PermutationBuilder<C> {
-    fn add_row(&mut self) {
+    pub fn add_row(&mut self) {
         self.rows += 1;
     }
-    fn with_rows(rows: usize) -> Self {
+    pub fn with_rows(rows: usize) -> Self {
         let mut new = Self::default();
         new.rows = rows;
         new

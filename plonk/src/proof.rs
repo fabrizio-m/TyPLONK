@@ -1,14 +1,14 @@
-use crate::{Circuit, Poly, Prof};
+use crate::{CompiledCircuit, Poly, Prof};
 use ark_bls12_381::Fr;
 use ark_ff::UniformRand;
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
+use challenges::ChallengeGenerator;
 use kgz::{KzgCommitment, KzgOpening, KzgScheme};
 use std::{convert::TryInto, iter::repeat_with};
 
-use self::challenges::ChallengeGenerator;
 mod challenges;
 
-impl Circuit {
+impl CompiledCircuit {
     fn proof(&self, a: Poly, b: Poly, c: Poly) -> Prof {
         todo!()
     }
@@ -30,7 +30,7 @@ struct Proof {
     permutation: PermutationProof,
     evaluation_point: Fr,
 }
-fn prove(circuit: &Circuit, advice: [Poly; 3]) -> Proof {
+fn prove(circuit: &CompiledCircuit, advice: [Poly; 3]) -> Proof {
     let scheme = KzgScheme::new(&circuit.srs);
     let domain = &circuit.domain;
     let rows = circuit.rows;
@@ -87,7 +87,7 @@ fn prove(circuit: &Circuit, advice: [Poly; 3]) -> Proof {
     };
     proof
 }
-fn verify(circuit: &Circuit, proof: Proof, scheme: &KzgScheme) -> bool {
+fn verify(circuit: &CompiledCircuit, proof: Proof, scheme: &KzgScheme) -> bool {
     let domain = &circuit.domain;
     let challenges = verify_challenges(&proof, circuit.rows);
     let (beta, lambda, point) = challenges;
