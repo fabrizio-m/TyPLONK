@@ -1,5 +1,8 @@
-use crate::CompiledCircuit;
+use crate::{CompiledCircuit, GateConstrains};
 use ark_bls12_381::Fr;
+use ark_ff::{One, Zero};
+use ark_poly::{domain, EvaluationDomain, Evaluations, GeneralEvaluationDomain};
+use kgz::srs::Srs;
 use permutation::{PermutationBuilder, Tag};
 use std::{
     ops::{Add, Mul},
@@ -31,6 +34,7 @@ enum Gate {
     Boolean,
     Constant(Box<Fr>),
 }
+
 struct Var(Option<usize>);
 
 impl CircuitBuilder {
@@ -63,7 +67,7 @@ impl CircuitBuilder {
     fn add_private_input(&mut self) -> Var {
         Var(None)
     }
-    fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CircuitBuilder {
+    fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CompiledCircuit {
         let builder = Rc::new(Mutex::new(Self::new()));
         let context = Context { builder };
         let inputs = [(); I].map(|_| Variable::input(&context));
@@ -72,7 +76,41 @@ impl CircuitBuilder {
             .unwrap()
             .into_inner()
             .unwrap();
-        builder
+        {
+            let rows = builder.gates.len();
+            let srs = Srs::random(rows * 2);
+            let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
+            let CircuitBuilder {
+                gates,
+                mut permutation,
+            } = builder;
+            let mut polys = [(); 5].map(|_| <Vec<Fr>>::with_capacity(rows));
+            gates.into_iter().for_each(|gate| {
+                let row = gate.to_row();
+                polys
+                    .iter_mut()
+                    .zip(row.into_iter())
+                    .for_each(|(col, value)| col.push(value));
+            });
+            println!("{:?}", &permutation);
+            let permutation = permutation.build().compile();
+            let [q_l, q_r, q_o, q_m, q_c] =
+                polys.map(|evals| Evaluations::from_vec_and_domain(evals, domain).interpolate());
+            let gate_constrains = GateConstrains {
+                q_l,
+                q_r,
+                q_o,
+                q_m,
+                q_c,
+            };
+            CompiledCircuit {
+                gate_constrains,
+                copy_constrains: permutation,
+                srs,
+                domain,
+                rows,
+            }
+        }
     }
 }
 #[derive(Clone)]
@@ -278,5 +316,17 @@ impl Mul for Variable {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
         self.binary_operation(rhs, GateOperation::Mul)
+    }
+}
+
+impl Gate {
+    fn to_row(self) -> [Fr; 5] {
+        match self {
+            Gate::General(_) => todo!(),
+            Gate::Mul => [Fr::zero(), Fr::zero(), Fr::one(), Fr::one(), Fr::zero()],
+            Gate::Add => [Fr::one(), Fr::one(), Fr::one(), Fr::zero(), Fr::zero()],
+            Gate::Boolean => todo!(),
+            Gate::Constant(_) => todo!(),
+        }
     }
 }

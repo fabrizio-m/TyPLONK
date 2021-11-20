@@ -12,6 +12,7 @@ use std::{convert::TryInto, iter::repeat_with};
 mod builder;
 mod proof;
 
+#[derive(Debug)]
 pub struct CompiledCircuit {
     gate_constrains: GateConstrains,
     copy_constrains: CompiledPermutation<3>,
@@ -23,6 +24,7 @@ pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
 pub type Poly = DensePolynomial<Fr>;
 
+#[derive(Debug)]
 struct GateConstrains {
     q_l: Poly,
     q_r: Poly,
@@ -37,12 +39,6 @@ pub struct Prof {
 }
 
 impl CompiledCircuit {
-    //cosets stolen from dusk
-    const CS1: Fr = Self::coset([7, 0, 0, 0]);
-    const CS2: Fr = Self::coset([13, 0, 0, 0]);
-    const fn coset(parts: [u64; 4]) -> Fr {
-        Fr::new(BigInteger256::new(parts))
-    }
     pub fn verify(&self, prof: Prof) -> bool {
         true
     }

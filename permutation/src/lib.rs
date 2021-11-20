@@ -60,18 +60,18 @@ impl<const C: usize> PermutationBuilder<C> {
             self.add_constrain(left, right).unwrap();
         }
     }
-    fn build(&mut self) -> Permutation<C> {
+    pub fn build(&mut self) -> Permutation<C> {
         let len = self.rows * C;
         let mut mapping = (0..len).collect::<Vec<_>>();
         let mut aux = (0..len).collect::<Vec<_>>();
         //let mut sizes = (0..len).collect::<Vec<_>>();
         let mut sizes = std::iter::repeat(1).take(len).collect::<Vec<_>>();
         let constrains = std::mem::take(&mut self.constrains);
+        println!("mapping:");
+        print_cycle(&mapping);
         for (left, rights) in constrains.into_iter() {
             let mut left = left.to_index(&self.rows);
             for right in rights {
-                println!("cycle:");
-                print_cycle(&mapping);
                 let mut right = right.to_index(&self.rows);
                 if aux[left] == aux[right] {
                     continue;
@@ -93,11 +93,13 @@ impl<const C: usize> PermutationBuilder<C> {
                 mapping.swap(left, right);
             }
         }
+        println!("perm:");
+        print_cycle(&mapping);
         Permutation { perm: mapping }
     }
 }
 #[derive(Debug)]
-struct Permutation<const C: usize> {
+pub struct Permutation<const C: usize> {
     perm: Vec<usize>,
 }
 
@@ -145,6 +147,7 @@ impl<const C: usize> Permutation<C> {
         cosets
     }
 }
+#[derive(Debug)]
 pub struct CompiledPermutation<const C: usize> {
     //cols: Vec<Vec<(Fr, Fr)>>,
     cols: [Vec<(Fr, Fr)>; C],
