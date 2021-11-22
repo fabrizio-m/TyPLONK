@@ -132,6 +132,18 @@ impl<const C: usize> Permutation<C> {
         }
         CompiledPermutation { cols, cosets, rows }
     }
+    pub fn print(&self) {
+        println!("len: {}", self.perm.len());
+        let rows = self.perm.len() / C;
+        let perm = &self.perm;
+        for j in 0..rows {
+            let mut row = vec![];
+            for i in 0..C {
+                row.push(perm[j + i * rows]);
+            }
+            println!("{:?}", row);
+        }
+    }
     fn cosets(gates: usize) -> [Fr; C] {
         let domain = <GeneralEvaluationDomain<Fr>>::new(gates).unwrap();
         let mut cosets = [Fr::zero(); C];

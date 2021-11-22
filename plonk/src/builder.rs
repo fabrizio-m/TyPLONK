@@ -67,7 +67,7 @@ impl CircuitBuilder {
     fn add_private_input(&mut self) -> Var {
         Var(None)
     }
-    fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CompiledCircuit {
+    pub fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CompiledCircuit<I> {
         let builder = Rc::new(Mutex::new(Self::new()));
         let context = Context { builder };
         let inputs = [(); I].map(|_| Variable::input(&context));
@@ -78,8 +78,8 @@ impl CircuitBuilder {
             .unwrap();
         {
             let rows = builder.gates.len();
-            let srs = Srs::random(rows * 2);
-            let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
+            let domain = <GeneralEvaluationDomain<Fr>>::new(rows + 2).unwrap();
+            let srs = Srs::random(domain.size() + 2);
             let CircuitBuilder {
                 gates,
                 mut permutation,
@@ -93,7 +93,9 @@ impl CircuitBuilder {
                     .for_each(|(col, value)| col.push(value));
             });
             println!("{:?}", &permutation);
-            let permutation = permutation.build().compile();
+            let permutation = permutation.build();
+            permutation.print();
+            let permutation = permutation.compile();
             let [q_l, q_r, q_o, q_m, q_c] =
                 polys.map(|evals| Evaluations::from_vec_and_domain(evals, domain).interpolate());
             let gate_constrains = GateConstrains {
@@ -114,11 +116,11 @@ impl CircuitBuilder {
     }
 }
 #[derive(Clone)]
-struct Context {
+pub struct Context {
     builder: Rc<Mutex<CircuitBuilder>>,
 }
 
-enum Variable {
+pub enum Variable {
     Build {
         context: Context,
         input: bool,
@@ -126,7 +128,6 @@ enum Variable {
     },
     Compute {
         value: Fr,
-        gate_index: Rc<AtomicUsize>,
         advice_values: Rc<Mutex<[Vec<Fr>; 3]>>,
     },
 }
@@ -157,9 +158,8 @@ impl Variable {
             }
             Variable::Compute {
                 value,
-                gate_index,
-                advice_values,
-            } => todo!(),
+                advice_values: _,
+            } => value == other.value(),
         }
     }
     fn input(context: &Context) -> Self {
@@ -220,7 +220,6 @@ impl Variable {
             }
             Variable::Compute {
                 value,
-                gate_index,
                 advice_values,
             } => {
                 let a = value;
@@ -236,7 +235,6 @@ impl Variable {
                 }
                 Variable::Compute {
                     value,
-                    gate_index,
                     advice_values,
                 }
             }
@@ -261,7 +259,6 @@ impl Variable {
             } => gate_index.unwrap(),
             Variable::Compute {
                 value,
-                gate_index,
                 advice_values,
             } => unreachable!(),
         }
@@ -270,7 +267,6 @@ impl Variable {
         match self {
             Variable::Compute {
                 value,
-                gate_index,
                 advice_values,
             } => value,
             _ => unreachable!(),

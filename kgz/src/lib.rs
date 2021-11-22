@@ -11,7 +11,7 @@ pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
 pub type Poly = DensePolynomial<Fr>;
 pub struct KzgScheme<'a>(&'a Srs);
 #[derive(Debug, Clone, Copy)]
-pub struct KzgCommitment(G1Point);
+pub struct KzgCommitment(pub G1Point);
 
 impl KzgCommitment {
     pub fn inner(&self) -> &G1Point {
@@ -19,7 +19,7 @@ impl KzgCommitment {
     }
 }
 #[derive(Debug, Clone, Copy)]
-pub struct KzgOpening(G1Point, Fr);
+pub struct KzgOpening(pub G1Point, pub Fr);
 
 impl KzgOpening {
     pub fn eval(self) -> Fr {

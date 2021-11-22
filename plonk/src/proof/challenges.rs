@@ -39,11 +39,11 @@ impl ChallengeGenerator {
     pub fn generate_challenges<const N: usize>(self) -> [Fr; N] {
         let mut rng = self.generate_rng();
 
-        let mut points = [0; N];
+        let points = [0; N];
         points.map(|_| Fr::rand(&mut rng))
     }
     pub fn generate_evaluation_point(self, max: usize) -> usize {
         let mut rng = self.generate_rng();
-        rng.gen_range(0..=max)
+        rng.gen_range(0..max)
     }
 }

@@ -1,4 +1,4 @@
-use crate::CompiledPermutation;
+use crate::{CompiledPermutation, PermutationBuilder, Tag};
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
@@ -11,18 +11,29 @@ impl<const C: usize> CompiledPermutation<C> {
         assert_eq!(cosets.len(), C);
         let acc = ColIterator::new(values.clone(), perms.clone());
         let acc = acc.scan(Fr::one(), |state, vals| {
-            let row_val = vals.into_iter().fold(*state, |state, val| {
+            let mut num = Fr::one();
+            let row_val = vals.into_iter().fold(Fr::one(), |state, val| {
                 let (cell_val, (tag, value)) = val;
+                //println!("cell_val: {}", cell_val);
                 let numerator = cell_val + beta * tag + lambda;
+                num *= numerator;
                 let denominator = cell_val + beta * value + lambda;
                 let result = numerator / denominator;
                 state * result
             });
-            Some(row_val)
+            //println!("row_val: {}", row_val);
+            //println!("row_num: {}", num);
+            *state *= row_val;
+            Some(*state)
         });
         let iter_one = std::iter::repeat(Fr::one()).take(1);
-        let d = iter_one.clone().chain(acc).chain(iter_one);
-        d.collect()
+        let acc = iter_one.clone().chain(acc).chain(iter_one).collect();
+        println!();
+        println!("acc: ");
+        for v in &acc {
+            println!("{}", v);
+        }
+        acc
     }
     pub fn verify(
         &self,
@@ -32,18 +43,45 @@ impl<const C: usize> CompiledPermutation<C> {
         beta: Fr,
         lambda: Fr,
     ) -> bool {
+        println!("acc_eval1: {}", acc_evals.0);
+        println!("acc_eval2: {}", acc_evals.1);
         let perms = self.cols.iter().map(|e| e[point].clone());
         let (num, den) = perms
             .zip(values)
             .map(|((label, value), val)| {
+                //println!("cell_val: {}", val);
                 let num = val + beta * label + lambda;
                 let den = val + beta * value + lambda;
                 (num, den)
             })
             .reduce(|(num1, den1), (num2, den2)| (num1 * num2, den1 * den2))
             .unwrap();
-        let rule1 = acc_evals.1 * den - acc_evals.0 * num == Fr::zero();
-        rule1
+
+        println!("num: {}", &num);
+        println!("den: {}", &den);
+
+        let lhs = acc_evals.1 * den;
+        println!("lhs: {}", lhs);
+        let rhs = acc_evals.0 * num;
+        println!("rhs: {}", rhs);
+        println!("lhs/rhs: {}", lhs / rhs);
+        let rule1 = lhs - rhs;
+        rule1.is_zero()
+    }
+    pub fn print(&self, val: bool) {
+        let rows = self.rows;
+        let cols = &self.cols;
+        for j in 0..rows {
+            //let mut row = vec![];
+            for i in 0..C {
+                if val {
+                    print!("{}", cols[i][j].1);
+                } else {
+                    print!("{}", cols[i][j].0);
+                }
+            }
+            println!("");
+        }
     }
 }
 
@@ -75,48 +113,33 @@ impl<const C: usize> Iterator for ColIterator<C> {
 }
 
 #[test]
-fn domain() {
-    use ark_ff::{FpParameters, PrimeField, Zero};
-    use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-    use std::collections::{HashMap, HashSet};
-
-    //println!("T: {}", <<Fr as PrimeField>::Params as FpParameters>::T);
-    let domain = <GeneralEvaluationDomain<Fr>>::new(2_usize.pow(16)).unwrap();
-    let elems = domain.elements().take(16).for_each(|elem| {
-        println!("{}", elem);
-    });
-    let w = domain.element(1);
-    println!("w*w: {}", w * w);
-    let set = domain.elements().collect::<HashSet<Fr>>();
-    let mut k1 = Fr::from(1);
-    while domain.evaluate_vanishing_polynomial(k1).is_zero() {
-        k1 += Fr::from(1);
+fn perm() {
+    let advice = [[1, 2, 3], [4, 5, 2], [7, 8, 1]];
+    let mut perm = <PermutationBuilder<3>>::with_rows(3);
+    perm.add_constrain(Tag { i: 0, j: 1 }, Tag { i: 1, j: 2 })
+        .unwrap();
+    perm.add_constrain(Tag { i: 0, j: 0 }, Tag { i: 2, j: 2 })
+        .unwrap();
+    let (beta, lambda) = (Fr::from(10), Fr::from(25));
+    println!("perm: {:?}", perm);
+    let perm = perm.build();
+    println!("perm builded: ",);
+    perm.print();
+    let perm = perm.compile();
+    println!("perm compiled: ");
+    perm.print(false);
+    println!("vals");
+    perm.print(true);
+    let values = advice
+        .map(|col| col.map(|v| Fr::from(v)))
+        .map(|col| col.to_vec());
+    let proof = perm.prove(&values, beta, lambda);
+    println!("proof: ");
+    for v in &proof {
+        println!("{}", v);
     }
-    println!("coset1: {}", k1);
-    let coset1 = domain
-        .elements()
-        .map(|elem| {
-            let k = k1 * elem;
-            if set.contains(&k) {
-                println!("bad one");
-            }
-            k
-        })
-        .collect::<HashSet<Fr>>();
-    let mut k2 = k1 + Fr::from(1);
-    while domain.evaluate_vanishing_polynomial(k1).is_zero() {
-        k2 += Fr::from(1);
-    }
-    let k2 = Fr::from(4);
-    println!("coset2: {}", k2);
-    let coset2 = domain
-        .elements()
-        .map(|elem| {
-            let k = k2 * elem;
-            if set.contains(&k) || coset1.contains(&k) {
-                println!("bad one");
-            }
-            k
-        })
-        .collect::<HashSet<Fr>>();
+    let values = [2, 5, 8].map(|v| Fr::from(v));
+    assert!(perm.verify(1, values, (proof[1], proof[2]), beta, lambda));
+    let values = [1, 5, 8].map(|v| Fr::from(v));
+    assert!(!perm.verify(1, values, (proof[1], proof[2]), beta, lambda));
 }

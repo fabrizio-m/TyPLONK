@@ -1,29 +1,29 @@
 use ark_bls12_381::Fr;
 use ark_ec::PairingEngine;
-use ark_ff::{BigInteger256, One, UniformRand, Zero};
+use ark_ff::{UniformRand, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
     Polynomial, UVPolynomial,
 };
-use kgz::{srs::Srs, KzgCommitment, KzgScheme};
+use kgz::srs::Srs;
 use permutation::CompiledPermutation;
 use std::{convert::TryInto, iter::repeat_with};
 
 mod builder;
 mod proof;
 
-#[derive(Debug)]
-pub struct CompiledCircuit {
-    gate_constrains: GateConstrains,
-    copy_constrains: CompiledPermutation<3>,
-    srs: Srs,
-    domain: GeneralEvaluationDomain<Fr>,
-    rows: usize,
-}
 pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
 pub type Poly = DensePolynomial<Fr>;
 
+#[derive(Debug)]
+pub struct CompiledCircuit<const INPUTS: usize> {
+    gate_constrains: GateConstrains,
+    copy_constrains: CompiledPermutation<3>,
+    srs: Srs,
+    domain: GeneralEvaluationDomain<Fr>,
+    pub rows: usize,
+}
 #[derive(Debug)]
 struct GateConstrains {
     q_l: Poly,
@@ -32,17 +32,9 @@ struct GateConstrains {
     q_m: Poly,
     q_c: Poly,
 }
-pub struct Prof {
-    a: KzgCommitment,
-    b: KzgCommitment,
-    c: KzgCommitment,
-}
 
-impl CompiledCircuit {
-    pub fn verify(&self, prof: Prof) -> bool {
-        true
-    }
-    //makes a blindign polynomial
+impl<const I: usize> CompiledCircuit<I> {
+    //makes a blinding polynomial
     fn blind_polys(n: usize, domain: &impl EvaluationDomain<Fr>) -> ([Poly; 3], Poly) {
         let mut rng = rand::thread_rng();
         let scalars = repeat_with(|| Fr::rand(&mut rng))
@@ -94,7 +86,9 @@ impl CompiledCircuit {
         let q_c = constrains.q_c.evaluate(&point);
         let [a, b, c] = advice;
 
-        let result = a * q_l + b + q_r - c * q_o + q_m * a * b + q_c;
+        let result = a * q_l + b * q_r - c * q_o + q_m * a * b + q_c;
+        //println!("result");
+        //println!("{}", result);
         result.is_zero()
     }
 }
