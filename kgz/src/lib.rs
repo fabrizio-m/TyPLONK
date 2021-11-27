@@ -2,7 +2,10 @@ use crate::{srs::Srs, Poly as MyPoly};
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    ops::Add,
+};
 
 pub mod srs;
 
@@ -100,4 +103,21 @@ fn commit() {
     assert!(poly.evaluate(&d) == 6.into());
     let opening = scheme.open(poly, d);
     assert!(scheme.verify(&commitment, &opening, d));
+}
+impl Add for KzgCommitment {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let commitment = self.0 + rhs.0;
+        Self(commitment.into())
+    }
+}
+impl Add for KzgOpening {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let eval = self.1 + rhs.1;
+        let witness = self.0 + self.0;
+        Self(witness, eval)
+    }
 }
