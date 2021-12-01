@@ -1,10 +1,11 @@
 use crate::{srs::Srs, Poly as MyPoly};
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
+use ark_ff::Field;
 use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
 use std::{
     fmt::{Debug, Display},
-    ops::Add,
+    ops::{Add, Mul, Sub},
 };
 
 pub mod srs;
@@ -80,6 +81,10 @@ impl<'a> KzgScheme<'a> {
         let pairing2 = Bls12_381::pairing(b, g2.clone());
         pairing1 == pairing2
     }
+    pub fn identity(&self) -> KzgCommitment {
+        let polynomial = Poly::from_coefficients_vec(vec![Fr::from(1)]);
+        self.commit(&polynomial)
+    }
 }
 pub fn print_poly(poly: &MyPoly) {
     println!();
@@ -119,5 +124,30 @@ impl Add for KzgOpening {
         let eval = self.1 + rhs.1;
         let witness = self.0 + self.0;
         Self(witness, eval)
+    }
+}
+impl Sub for KzgCommitment {
+    type Output = Self;
+
+    fn sub(self, mut rhs: Self) -> Self::Output {
+        rhs.0.y.inverse_in_place().unwrap();
+        Self::add(self, rhs)
+    }
+}
+impl Mul<Fr> for KzgCommitment {
+    type Output = Self;
+
+    fn mul(self, rhs: Fr) -> Self::Output {
+        let element = self.0.mul(rhs);
+        Self(element.into())
+    }
+}
+
+impl Mul<Fr> for &KzgCommitment {
+    type Output = KzgCommitment;
+
+    fn mul(self, rhs: Fr) -> Self::Output {
+        let element = self.0.mul(rhs);
+        KzgCommitment(element.into())
     }
 }

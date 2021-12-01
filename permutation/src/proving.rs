@@ -1,7 +1,6 @@
-use crate::{CompiledPermutation, PermutationBuilder, Tag};
+use crate::CompiledPermutation;
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use std::iter::Iterator;
 
 impl<const C: usize> CompiledPermutation<C> {
@@ -27,7 +26,7 @@ impl<const C: usize> CompiledPermutation<C> {
             Some(*state)
         });
         let iter_one = std::iter::repeat(Fr::one()).take(1);
-        let acc = iter_one.clone().chain(acc).chain(iter_one).collect();
+        let acc = iter_one.clone().chain(acc).collect();
         println!();
         println!("acc: ");
         for v in &acc {
@@ -43,8 +42,8 @@ impl<const C: usize> CompiledPermutation<C> {
         beta: Fr,
         lambda: Fr,
     ) -> bool {
-        println!("acc_eval1: {}", acc_evals.0);
-        println!("acc_eval2: {}", acc_evals.1);
+        //println!("acc_eval1: {}", acc_evals.0);
+        //println!("acc_eval2: {}", acc_evals.1);
         let perms = self.cols.iter().map(|e| e[point].clone());
         let (num, den) = perms
             .zip(values)
@@ -57,14 +56,14 @@ impl<const C: usize> CompiledPermutation<C> {
             .reduce(|(num1, den1), (num2, den2)| (num1 * num2, den1 * den2))
             .unwrap();
 
-        println!("num: {}", &num);
-        println!("den: {}", &den);
+        //println!("num: {}", &num);
+        //println!("den: {}", &den);
 
         let lhs = acc_evals.1 * den;
-        println!("lhs: {}", lhs);
+        //println!("lhs: {}", lhs);
         let rhs = acc_evals.0 * num;
-        println!("rhs: {}", rhs);
-        println!("lhs/rhs: {}", lhs / rhs);
+        //println!("rhs: {}", rhs);
+        //println!("lhs/rhs: {}", lhs / rhs);
         let rule1 = lhs - rhs;
         rule1.is_zero()
     }
@@ -75,9 +74,9 @@ impl<const C: usize> CompiledPermutation<C> {
             //let mut row = vec![];
             for i in 0..C {
                 if val {
-                    print!("{}", cols[i][j].1);
+                    //print!("{}", cols[i][j].1);
                 } else {
-                    print!("{}", cols[i][j].0);
+                    //print!("{}", cols[i][j].0);
                 }
             }
             println!("");
@@ -114,6 +113,7 @@ impl<const C: usize> Iterator for ColIterator<C> {
 
 #[test]
 fn perm() {
+    use crate::{PermutationBuilder, Tag};
     let advice = [[1, 2, 3], [4, 5, 2], [7, 8, 1]];
     let mut perm = <PermutationBuilder<3>>::with_rows(3);
     perm.add_constrain(Tag { i: 0, j: 1 }, Tag { i: 1, j: 2 })

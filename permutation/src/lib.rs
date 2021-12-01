@@ -1,8 +1,10 @@
 use ark_bls12_381::Fr;
 use ark_ff::{BigInteger256, FftField, Fp256, One, UniformRand, Zero};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
+    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, MultilinearExtension,
+    Polynomial, UVPolynomial,
 };
+use kgz::{KzgCommitment, KzgScheme, Poly};
 use std::{
     collections::{HashMap, HashSet},
     mem::swap,
@@ -67,8 +69,8 @@ impl<const C: usize> PermutationBuilder<C> {
         //let mut sizes = (0..len).collect::<Vec<_>>();
         let mut sizes = std::iter::repeat(1).take(len).collect::<Vec<_>>();
         let constrains = std::mem::take(&mut self.constrains);
-        println!("mapping:");
-        print_cycle(&mapping);
+        //println!("mapping:");
+        //print_cycle(&mapping);
         for (left, rights) in constrains.into_iter() {
             let mut left = left.to_index(&self.rows);
             for right in rights {
@@ -93,8 +95,8 @@ impl<const C: usize> PermutationBuilder<C> {
                 mapping.swap(left, right);
             }
         }
-        println!("perm:");
-        print_cycle(&mapping);
+        //println!("perm:");
+        //print_cycle(&mapping);
         Permutation { perm: mapping }
     }
 }
@@ -162,9 +164,36 @@ impl<const C: usize> Permutation<C> {
 #[derive(Debug)]
 pub struct CompiledPermutation<const C: usize> {
     //cols: Vec<Vec<(Fr, Fr)>>,
-    cols: [Vec<(Fr, Fr)>; C],
-    cosets: [Fr; C],
+    pub cols: [Vec<(Fr, Fr)>; C],
+    pub cosets: [Fr; C],
     rows: usize,
+}
+
+impl<const C: usize> CompiledPermutation<C> {
+    pub fn sigma_evals(&self, point: &Fr) -> [Fr; C] {
+        self.cols
+            .iter()
+            .map(|col| {
+                let poly = col.iter().map(|cell| cell.1).collect();
+                let poly = Poly::from_coefficients_vec(poly);
+                poly.evaluate(point)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+    pub fn sigma_commitments(&self, scheme: &KzgScheme) -> [KzgCommitment; C] {
+        self.cols
+            .iter()
+            .map(|col| {
+                let poly = col.iter().map(|cell| cell.1).collect();
+                let poly = Poly::from_coefficients_vec(poly);
+                scheme.commit(&poly)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
 }
 
 fn print_matrix(matrix: &[usize], cols: usize) {

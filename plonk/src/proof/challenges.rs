@@ -5,6 +5,7 @@ use blake2::{Blake2b, Digest};
 use kgz::KzgCommitment;
 use rand::{prelude::StdRng, Rng, SeedableRng};
 
+#[derive(Clone)]
 pub struct ChallengeGenerator {
     data: Vec<u8>,
 }

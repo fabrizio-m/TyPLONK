@@ -5,12 +5,13 @@ use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
     Polynomial, UVPolynomial,
 };
-use kgz::srs::Srs;
+use kgz::{srs::Srs, KzgCommitment};
 use permutation::CompiledPermutation;
 use std::{convert::TryInto, iter::repeat_with};
 
 mod builder;
 mod proof;
+mod utils;
 
 pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
@@ -31,6 +32,7 @@ struct GateConstrains {
     q_o: Poly,
     q_m: Poly,
     q_c: Poly,
+    fixed_commitments: [KzgCommitment; 5],
 }
 
 impl<const I: usize> CompiledCircuit<I> {

@@ -2,7 +2,7 @@ use crate::{CompiledCircuit, GateConstrains};
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
 use ark_poly::{domain, EvaluationDomain, Evaluations, GeneralEvaluationDomain};
-use kgz::srs::Srs;
+use kgz::{srs::Srs, KzgScheme};
 use permutation::{PermutationBuilder, Tag};
 use std::{
     ops::{Add, Mul},
@@ -78,7 +78,8 @@ impl CircuitBuilder {
             .unwrap();
         {
             let rows = builder.gates.len();
-            let domain = <GeneralEvaluationDomain<Fr>>::new(rows + 2).unwrap();
+            println!("compiling {} gates", rows);
+            let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
             let srs = Srs::random(domain.size() + 2);
             let CircuitBuilder {
                 gates,
@@ -96,14 +97,26 @@ impl CircuitBuilder {
             let permutation = permutation.build();
             permutation.print();
             let permutation = permutation.compile();
-            let [q_l, q_r, q_o, q_m, q_c] =
-                polys.map(|evals| Evaluations::from_vec_and_domain(evals, domain).interpolate());
+            let scheme = KzgScheme::new(&srs);
+            let polys = polys.map(|evals| {
+                let poly = Evaluations::from_vec_and_domain(evals, domain).interpolate();
+                let commitment = scheme.commit(&poly);
+                (poly, commitment)
+            });
+            let commitments = polys
+                .iter()
+                .map(|(_, commitment)| commitment.clone())
+                .collect::<Vec<_>>();
+            let polys = polys.map(|(poly, _)| poly);
+
+            let [q_l, q_r, q_o, q_m, q_c] = polys;
             let gate_constrains = GateConstrains {
                 q_l,
                 q_r,
                 q_o,
                 q_m,
                 q_c,
+                fixed_commitments: commitments.try_into().unwrap(),
             };
             CompiledCircuit {
                 gate_constrains,
@@ -120,6 +133,7 @@ pub struct Context {
     builder: Rc<Mutex<CircuitBuilder>>,
 }
 
+#[derive(Clone)]
 pub enum Variable {
     Build {
         context: Context,

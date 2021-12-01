@@ -279,6 +279,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
+ "kgz",
  "rand",
 ]
 
