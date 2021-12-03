@@ -5,7 +5,7 @@ use ark_ff::Field;
 use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Mul, Sub},
+    ops::{Add, Mul, Neg, Sub},
 };
 
 pub mod srs;
@@ -14,7 +14,7 @@ pub type G1Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G1Affine;
 pub type G2Point = <ark_bls12_381::Bls12_381 as PairingEngine>::G2Affine;
 pub type Poly = DensePolynomial<Fr>;
 pub struct KzgScheme<'a>(&'a Srs);
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KzgCommitment(pub G1Point);
 
 impl KzgCommitment {
@@ -129,9 +129,8 @@ impl Add for KzgOpening {
 impl Sub for KzgCommitment {
     type Output = Self;
 
-    fn sub(self, mut rhs: Self) -> Self::Output {
-        rhs.0.y.inverse_in_place().unwrap();
-        Self::add(self, rhs)
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::add(self, -rhs)
     }
 }
 impl Mul<Fr> for KzgCommitment {
@@ -149,5 +148,13 @@ impl Mul<Fr> for &KzgCommitment {
     fn mul(self, rhs: Fr) -> Self::Output {
         let element = self.0.mul(rhs);
         KzgCommitment(element.into())
+    }
+}
+impl Neg for KzgCommitment {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        let point = self.0;
+        Self(-point)
     }
 }
