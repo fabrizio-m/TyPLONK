@@ -6,7 +6,7 @@ use ark_poly::{
     univariate::{DenseOrSparsePolynomial, SparsePolynomial},
     EvaluationDomain, Polynomial, Radix2EvaluationDomain, UVPolynomial,
 };
-use kgz::{KzgCommitment, KzgOpening, KzgScheme};
+use kgz::{srs::Srs, KzgCommitment, KzgOpening, KzgScheme};
 use std::{convert::TryInto, iter::repeat_with, ops::Mul};
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
@@ -39,22 +39,6 @@ impl<const S: usize> SlicedPoly<S> {
     pub fn commit(&self, scheme: &KzgScheme) -> [KzgCommitment; S] {
         //waiting for array.each_ref()
         self.slices.clone().map(|slice| scheme.commit(&slice))
-    }
-    pub fn compact_commitment(
-        degree: usize,
-        commitments: [KzgCommitment; S],
-        point: Fr,
-    ) -> KzgCommitment {
-        commitments
-            .iter()
-            .enumerate()
-            .map(|(index, commit)| {
-                let exponent =
-                    SparsePolynomial::from_coefficients_slice(&[((degree) * index, Fr::one())]);
-                commit * exponent.evaluate(&point)
-            })
-            .reduce(|one, other| one + other)
-            .unwrap()
     }
     pub fn open(&self, scheme: &KzgScheme, point: Fr) -> [KzgOpening; S] {
         self.slices.clone().map(|slice| scheme.open(slice, point))
@@ -111,6 +95,22 @@ impl<const S: usize> SlicedPoly<S> {
                     Fr::one(),
                 )]);
                 slice.mul(exponent.evaluate(&point))
+            })
+            .reduce(|one, other| one + other)
+            .unwrap()
+    }
+    pub fn compact_commitment(
+        degree: usize,
+        commitments: [KzgCommitment; S],
+        point: Fr,
+    ) -> KzgCommitment {
+        commitments
+            .iter()
+            .enumerate()
+            .map(|(index, commit)| {
+                let exponent =
+                    SparsePolynomial::from_coefficients_slice(&[((degree) * index, Fr::one())]);
+                commit * exponent.evaluate(&point)
             })
             .reduce(|one, other| one + other)
             .unwrap()
@@ -193,4 +193,27 @@ fn l0() {
         evals.evals.into_iter().reduce(std::ops::Add::add).unwrap(),
         Fr::one()
     );
+}
+
+#[test]
+fn sliced() {
+    let srs = Srs::random(3);
+    let scheme = KzgScheme::new(&srs);
+    let point = &Fr::from(4);
+    let coeffs = [1, 2, 3, 4, 5, 6, 7, 8].map(|e| Fr::from(e));
+    let poly = Poly::from_coefficients_slice(&coeffs);
+    let whole_eval = poly.evaluate(point);
+    println!("whole eval: {}", whole_eval);
+    let sliced = <SlicedPoly<3>>::from_poly(poly, 3);
+    let sliced_eval = sliced.eval(*point);
+    println!("sliced eval: {}", sliced_eval);
+    assert_eq!(whole_eval, sliced_eval);
+    let compact_poly = sliced.compact(*point);
+    let compact_eval = compact_poly.evaluate(point);
+    println!("compact eval: {}", compact_eval);
+    assert_eq!(whole_eval, compact_eval);
+    let compact_commit = scheme.commit(&compact_poly);
+    let sliced_commit = sliced.commit(&scheme);
+    let sliced_commit = <SlicedPoly<3>>::compact_commitment(3, sliced_commit, *point);
+    assert_eq!(compact_commit, sliced_commit);
 }

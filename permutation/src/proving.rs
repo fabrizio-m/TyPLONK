@@ -9,22 +9,30 @@ impl<const C: usize> CompiledPermutation<C> {
         let perms = &self.cols;
         assert_eq!(cosets.len(), C);
         let acc = ColIterator::new(values.clone(), perms.clone());
+        println!();
+        println!("acc prove");
         let acc = acc.scan(Fr::one(), |state, vals| {
             let mut num = Fr::one();
+            let mut den = Fr::one();
             let row_val = vals.into_iter().fold(Fr::one(), |state, val| {
                 let (cell_val, (tag, value)) = val;
                 //println!("cell_val: {}", cell_val);
                 let numerator = cell_val + beta * tag + lambda;
+                //println!("num {}", numerator);
                 num *= numerator;
                 let denominator = cell_val + beta * value + lambda;
+                den *= denominator;
+                //println!("den {}", denominator);
                 let result = numerator / denominator;
                 state * result
             });
             //println!("row_val: {}", row_val);
             //println!("row_num: {}", num);
+            println!("row_den: {}", den);
             *state *= row_val;
             Some(*state)
         });
+        println!();
         let iter_one = std::iter::repeat(Fr::one()).take(1);
         let acc = iter_one.clone().chain(acc).collect();
         println!();
@@ -122,7 +130,7 @@ fn perm() {
         .unwrap();
     let (beta, lambda) = (Fr::from(10), Fr::from(25));
     println!("perm: {:?}", perm);
-    let perm = perm.build();
+    let perm = perm.build(4);
     println!("perm builded: ",);
     perm.print();
     let perm = perm.compile();

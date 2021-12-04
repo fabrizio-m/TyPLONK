@@ -1,8 +1,8 @@
 use ark_bls12_381::Fr;
 use ark_ff::{BigInteger256, FftField, Fp256, One, UniformRand, Zero};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, MultilinearExtension,
-    Polynomial, UVPolynomial,
+    univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
+    MultilinearExtension, Polynomial, UVPolynomial,
 };
 use kgz::{KzgCommitment, KzgScheme, Poly};
 use std::{
@@ -62,7 +62,7 @@ impl<const C: usize> PermutationBuilder<C> {
             self.add_constrain(left, right).unwrap();
         }
     }
-    pub fn build(&mut self) -> Permutation<C> {
+    pub fn build(&mut self, size: usize) -> Permutation<C> {
         let len = self.rows * C;
         let mut mapping = (0..len).collect::<Vec<_>>();
         let mut aux = (0..len).collect::<Vec<_>>();
@@ -72,9 +72,9 @@ impl<const C: usize> PermutationBuilder<C> {
         //println!("mapping:");
         //print_cycle(&mapping);
         for (left, rights) in constrains.into_iter() {
-            let mut left = left.to_index(&self.rows);
+            let mut left = left.to_index(&size);
             for right in rights {
-                let mut right = right.to_index(&self.rows);
+                let mut right = right.to_index(&size);
                 if aux[left] == aux[right] {
                     continue;
                 }
@@ -170,24 +170,30 @@ pub struct CompiledPermutation<const C: usize> {
 }
 
 impl<const C: usize> CompiledPermutation<C> {
-    pub fn sigma_evals(&self, point: &Fr) -> [Fr; C] {
+    pub fn sigma_evals(&self, point: &Fr, domain: GeneralEvaluationDomain<Fr>) -> [Fr; C] {
         self.cols
             .iter()
             .map(|col| {
-                let poly = col.iter().map(|cell| cell.1).collect();
-                let poly = Poly::from_coefficients_vec(poly);
+                let evals = col.iter().map(|cell| cell.1).collect();
+                let eval = <Evaluations<Fr>>::from_vec_and_domain(evals, domain);
+                let poly = eval.interpolate();
                 poly.evaluate(point)
             })
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
     }
-    pub fn sigma_commitments(&self, scheme: &KzgScheme) -> [KzgCommitment; C] {
+    pub fn sigma_commitments(
+        &self,
+        scheme: &KzgScheme,
+        domain: GeneralEvaluationDomain<Fr>,
+    ) -> [KzgCommitment; C] {
         self.cols
             .iter()
             .map(|col| {
-                let poly = col.iter().map(|cell| cell.1).collect();
-                let poly = Poly::from_coefficients_vec(poly);
+                let evals = col.iter().map(|cell| cell.1).collect();
+                let eval = <Evaluations<Fr>>::from_vec_and_domain(evals, domain);
+                let poly = eval.interpolate();
                 scheme.commit(&poly)
             })
             .collect::<Vec<_>>()

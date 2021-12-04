@@ -5,6 +5,7 @@ use ark_poly::{domain, EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use kgz::{srs::Srs, KzgScheme};
 use permutation::{PermutationBuilder, Tag};
 use std::{
+    iter::repeat,
     ops::{Add, Mul},
     rc::Rc,
     sync::{atomic::AtomicUsize, Mutex},
@@ -18,7 +19,7 @@ struct CircuitBuilder {
     permutation: PermutationBuilder<3>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct GeneralGate {
     q_l: Fr,
     q_r: Fr,
@@ -26,13 +27,14 @@ struct GeneralGate {
     q_m: Fr,
     q_c: Fr,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Gate {
     General(Box<GeneralGate>),
     Mul,
     Add,
     Boolean,
     Constant(Box<Fr>),
+    Dummy,
 }
 
 struct Var(Option<usize>);
@@ -67,20 +69,34 @@ impl CircuitBuilder {
     fn add_private_input(&mut self) -> Var {
         Var(None)
     }
+    fn fill(&mut self) {
+        let rows = self.gates.len();
+        let size = repeat(())
+            .scan(2_usize, |state, _| {
+                let old = *state;
+                *state = old * 2;
+                Some(old)
+            })
+            .find(|size| size >= &rows)
+            .unwrap();
+        self.gates.resize(size, Gate::Dummy);
+    }
     pub fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CompiledCircuit<I> {
         let builder = Rc::new(Mutex::new(Self::new()));
         let context = Context { builder };
         let inputs = [(); I].map(|_| Variable::input(&context));
         circuit(inputs);
-        let builder = Rc::try_unwrap(context.builder)
+        let mut builder = Rc::try_unwrap(context.builder)
             .unwrap()
             .into_inner()
             .unwrap();
+        builder.fill();
+
         {
             let rows = builder.gates.len();
             println!("compiling {} gates", rows);
             let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
-            let srs = Srs::random(domain.size() + 2);
+            let srs = Srs::random(domain.size());
             let CircuitBuilder {
                 gates,
                 mut permutation,
@@ -94,7 +110,7 @@ impl CircuitBuilder {
                     .for_each(|(col, value)| col.push(value));
             });
             println!("{:?}", &permutation);
-            let permutation = permutation.build();
+            let permutation = permutation.build(rows);
             permutation.print();
             let permutation = permutation.compile();
             let scheme = KzgScheme::new(&srs);
@@ -337,6 +353,7 @@ impl Gate {
             Gate::Add => [Fr::one(), Fr::one(), Fr::one(), Fr::zero(), Fr::zero()],
             Gate::Boolean => todo!(),
             Gate::Constant(_) => todo!(),
+            Gate::Dummy => [Fr::zero(), Fr::zero(), Fr::zero(), Fr::zero(), Fr::zero()],
         }
     }
 }

@@ -158,3 +158,16 @@ impl Neg for KzgCommitment {
         Self(-point)
     }
 }
+
+#[test]
+fn scalar_mul() {
+    let srs = Srs::random(5);
+    let scheme = KzgScheme::new(&srs);
+    let coeffs = [1, 2, 3, 4, 5].map(|e| Fr::from(e));
+    let poly = Poly::from_coefficients_slice(&coeffs);
+    let commit1 = scheme.commit(&poly);
+    let factor = Fr::from(9);
+    let poly2 = poly.mul(factor);
+    let commit2 = scheme.commit(&poly2);
+    assert_eq!(commit1 * factor, commit2);
+}
