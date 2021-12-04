@@ -1,10 +1,7 @@
 use ark_bls12_381::Fr;
-use ark_ff::{BigInteger256, FftField, Fp256, One, UniformRand, Zero};
-use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain,
-    MultilinearExtension, Polynomial, UVPolynomial,
-};
-use kgz::{KzgCommitment, KzgScheme, Poly};
+use ark_ff::{One, Zero};
+use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain, Polynomial};
+use kgz::{KzgCommitment, KzgScheme};
 use std::{
     collections::{HashMap, HashSet},
     mem::swap,
@@ -63,14 +60,11 @@ impl<const C: usize> PermutationBuilder<C> {
         }
     }
     pub fn build(&mut self, size: usize) -> Permutation<C> {
-        let len = self.rows * C;
+        let len = size * C;
         let mut mapping = (0..len).collect::<Vec<_>>();
         let mut aux = (0..len).collect::<Vec<_>>();
-        //let mut sizes = (0..len).collect::<Vec<_>>();
         let mut sizes = std::iter::repeat(1).take(len).collect::<Vec<_>>();
         let constrains = std::mem::take(&mut self.constrains);
-        //println!("mapping:");
-        //print_cycle(&mapping);
         for (left, rights) in constrains.into_iter() {
             let mut left = left.to_index(&size);
             for right in rights {
@@ -95,8 +89,6 @@ impl<const C: usize> PermutationBuilder<C> {
                 mapping.swap(left, right);
             }
         }
-        //println!("perm:");
-        //print_cycle(&mapping);
         Permutation { perm: mapping }
     }
 }

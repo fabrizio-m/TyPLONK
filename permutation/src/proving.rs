@@ -9,8 +9,6 @@ impl<const C: usize> CompiledPermutation<C> {
         let perms = &self.cols;
         assert_eq!(cosets.len(), C);
         let acc = ColIterator::new(values.clone(), perms.clone());
-        println!();
-        println!("acc prove");
         let acc = acc.scan(Fr::one(), |state, vals| {
             let mut num = Fr::one();
             let mut den = Fr::one();
@@ -26,20 +24,11 @@ impl<const C: usize> CompiledPermutation<C> {
                 let result = numerator / denominator;
                 state * result
             });
-            //println!("row_val: {}", row_val);
-            //println!("row_num: {}", num);
-            println!("row_den: {}", den);
             *state *= row_val;
             Some(*state)
         });
-        println!();
         let iter_one = std::iter::repeat(Fr::one()).take(1);
         let acc = iter_one.clone().chain(acc).collect();
-        println!();
-        println!("acc: ");
-        for v in &acc {
-            println!("{}", v);
-        }
         acc
     }
     pub fn verify(
@@ -50,8 +39,6 @@ impl<const C: usize> CompiledPermutation<C> {
         beta: Fr,
         lambda: Fr,
     ) -> bool {
-        //println!("acc_eval1: {}", acc_evals.0);
-        //println!("acc_eval2: {}", acc_evals.1);
         let perms = self.cols.iter().map(|e| e[point].clone());
         let (num, den) = perms
             .zip(values)
@@ -63,15 +50,8 @@ impl<const C: usize> CompiledPermutation<C> {
             })
             .reduce(|(num1, den1), (num2, den2)| (num1 * num2, den1 * den2))
             .unwrap();
-
-        //println!("num: {}", &num);
-        //println!("den: {}", &den);
-
         let lhs = acc_evals.1 * den;
-        //println!("lhs: {}", lhs);
         let rhs = acc_evals.0 * num;
-        //println!("rhs: {}", rhs);
-        //println!("lhs/rhs: {}", lhs / rhs);
         let rule1 = lhs - rhs;
         rule1.is_zero()
     }
@@ -79,12 +59,11 @@ impl<const C: usize> CompiledPermutation<C> {
         let rows = self.rows;
         let cols = &self.cols;
         for j in 0..rows {
-            //let mut row = vec![];
             for i in 0..C {
                 if val {
-                    //print!("{}", cols[i][j].1);
+                    print!("{}", cols[i][j].1);
                 } else {
-                    //print!("{}", cols[i][j].0);
+                    print!("{}", cols[i][j].0);
                 }
             }
             println!("");
@@ -129,23 +108,12 @@ fn perm() {
     perm.add_constrain(Tag { i: 0, j: 0 }, Tag { i: 2, j: 2 })
         .unwrap();
     let (beta, lambda) = (Fr::from(10), Fr::from(25));
-    println!("perm: {:?}", perm);
     let perm = perm.build(4);
-    println!("perm builded: ",);
-    perm.print();
     let perm = perm.compile();
-    println!("perm compiled: ");
-    perm.print(false);
-    println!("vals");
-    perm.print(true);
     let values = advice
         .map(|col| col.map(|v| Fr::from(v)))
         .map(|col| col.to_vec());
     let proof = perm.prove(&values, beta, lambda);
-    println!("proof: ");
-    for v in &proof {
-        println!("{}", v);
-    }
     let values = [2, 5, 8].map(|v| Fr::from(v));
     assert!(perm.verify(1, values, (proof[1], proof[2]), beta, lambda));
     let values = [1, 5, 8].map(|v| Fr::from(v));

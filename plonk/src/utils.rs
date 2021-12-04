@@ -1,12 +1,11 @@
 use crate::Poly;
 use ark_bls12_381::Fr;
-use ark_ff::{Field, One, UniformRand, Zero};
+use ark_ff::{One, UniformRand, Zero};
 use ark_poly::{
-    domain,
     univariate::{DenseOrSparsePolynomial, SparsePolynomial},
-    EvaluationDomain, Polynomial, Radix2EvaluationDomain, UVPolynomial,
+    EvaluationDomain, Polynomial, UVPolynomial,
 };
-use kgz::{srs::Srs, KzgCommitment, KzgOpening, KzgScheme};
+use kgz::{KzgCommitment, KzgOpening, KzgScheme};
 use std::{convert::TryInto, iter::repeat_with, ops::Mul};
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
@@ -117,34 +116,6 @@ impl<const S: usize> SlicedPoly<S> {
     }
 }
 
-//makes blinding polynomials
-pub fn blind_polys(domain: &impl EvaluationDomain<Fr>) -> ([Poly; 3], Poly) {
-    let mut rng = rand::thread_rng();
-    let scalars = repeat_with(|| Fr::rand(&mut rng))
-        .take(9)
-        .collect::<Vec<_>>();
-
-    let gates = [
-        [scalars[0], scalars[1]],
-        [scalars[2], scalars[3]],
-        [scalars[4], scalars[5]],
-    ];
-    let copy = [scalars[6], scalars[7], scalars[8]];
-
-    let gates = gates
-        .iter()
-        .map(|item| {
-            let poly = Poly::from_coefficients_slice(item);
-            //poly.mul_by_vanishing_poly(domain.clone());
-            poly
-        })
-        .collect::<Vec<_>>();
-    let copy = Poly::from_coefficients_slice(&copy);
-    (
-        gates.try_into().unwrap(),
-        copy.mul_by_vanishing_poly(domain.clone()),
-    )
-}
 #[test]
 fn slicing() {
     use kgz::srs::Srs;
@@ -180,6 +151,7 @@ pub fn l0_poly(domain: impl EvaluationDomain<Fr>) -> Poly {
 
 #[test]
 fn l0() {
+    use ark_poly::Radix2EvaluationDomain;
     let domain = Radix2EvaluationDomain::new(2_usize.pow(16)).unwrap();
     let l0 = l0_poly(domain);
     println!("w:{}", domain.element(1));
@@ -197,6 +169,7 @@ fn l0() {
 
 #[test]
 fn sliced() {
+    use kgz::srs::Srs;
     let srs = Srs::random(3);
     let scheme = KzgScheme::new(&srs);
     let point = &Fr::from(4);

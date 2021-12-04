@@ -1,15 +1,13 @@
 use crate::{
     builder::Variable,
-    utils::{add_to_poly, blind_polys, l0_poly, SlicedPoly},
+    utils::{add_to_poly, l0_poly, SlicedPoly},
     CompiledCircuit, GateConstrains, Poly,
 };
 use ark_bls12_381::Fr;
 use ark_ff::{Field, One, Zero};
 use ark_poly::{
-    domain, univariate::DensePolynomial, EvaluationDomain, Evaluations, Polynomial,
-    Radix2EvaluationDomain, UVPolynomial,
+    univariate::DensePolynomial, EvaluationDomain, Evaluations, Polynomial, UVPolynomial,
 };
-
 use challenges::ChallengeGenerator;
 use kgz::{KzgCommitment, KzgOpening, KzgScheme};
 use permutation::CompiledPermutation;

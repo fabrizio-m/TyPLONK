@@ -1,14 +1,14 @@
 use crate::{CompiledCircuit, GateConstrains};
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
-use ark_poly::{domain, EvaluationDomain, Evaluations, GeneralEvaluationDomain};
+use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use kgz::{srs::Srs, KzgScheme};
 use permutation::{PermutationBuilder, Tag};
 use std::{
     iter::repeat,
     ops::{Add, Mul},
     rc::Rc,
-    sync::{atomic::AtomicUsize, Mutex},
+    sync::Mutex,
 };
 
 mod test;
@@ -52,10 +52,6 @@ impl CircuitBuilder {
         self.gates.push(gate);
         self.permutation.add_row();
         let index = self.gates.len() - 1;
-        //let copy1 = a.0.map(|copy| Copy::Left(copy));
-        //let copy2 = b.0.map(|copy| Copy::Right(copy));
-        //let constrains = vec![copy1, copy2].into_iter().filter_map(|e| e).collect();
-        //self.copy_constrains.insert(index, constrains);
         index
     }
     ///adds a multiplication gate
@@ -94,7 +90,6 @@ impl CircuitBuilder {
 
         {
             let rows = builder.gates.len();
-            println!("compiling {} gates", rows);
             let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
             let srs = Srs::random(domain.size());
             let CircuitBuilder {
@@ -109,7 +104,6 @@ impl CircuitBuilder {
                     .zip(row.into_iter())
                     .for_each(|(col, value)| col.push(value));
             });
-            println!("{:?}", &permutation);
             let permutation = permutation.build(rows);
             permutation.print();
             let permutation = permutation.compile();
@@ -272,33 +266,19 @@ impl Variable {
     }
     fn is_input(&self) -> bool {
         match self {
-            Variable::Build {
-                context,
-                input,
-                gate_index,
-            } => *input,
+            Variable::Build { input, .. } => *input,
             _ => unreachable!(),
         }
     }
     fn index(&self) -> usize {
         match self {
-            Variable::Build {
-                context,
-                input,
-                gate_index,
-            } => gate_index.unwrap(),
-            Variable::Compute {
-                value,
-                advice_values,
-            } => unreachable!(),
+            Variable::Build { gate_index, .. } => gate_index.unwrap(),
+            Variable::Compute { .. } => unreachable!(),
         }
     }
     fn value(&self) -> &Fr {
         match self {
-            Variable::Compute {
-                value,
-                advice_values,
-            } => value,
+            Variable::Compute { value, .. } => value,
             _ => unreachable!(),
         }
     }
