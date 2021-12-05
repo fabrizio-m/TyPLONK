@@ -43,7 +43,7 @@ impl ChallengeGenerator {
         let points = [0; N];
         points.map(|_| Fr::rand(&mut rng))
     }
-    pub fn generate_evaluation_point(self, max: usize) -> usize {
+    fn generate_evaluation_point(self, max: usize) -> usize {
         let mut rng = self.generate_rng();
         rng.gen_range(0..max)
     }

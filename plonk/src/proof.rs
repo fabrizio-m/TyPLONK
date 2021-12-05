@@ -113,20 +113,13 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
     let mut challenge_generator = ChallengeGenerator::with_digest(&commitments);
     challenge_generator.digest(&acc_commitment);
 
-    let point = challenge_generator.clone().generate_evaluation_point(rows);
-    let [alpha] = challenge_generator.generate_challenges();
-    let evaluation_point = domain.element(point);
+    let [alpha, evaluation_point] = challenge_generator.generate_challenges();
     let proof = {
         let quotient = quotient_polynomial(
             circuit,
             [&a, &b, &c],
             (&acc_poly, &acc_poly_w),
             [alpha, beta, gamma],
-        );
-        let quotient_eval = quotient.eval(evaluation_point);
-        assert_eq!(
-            quotient_eval * domain.evaluate_vanishing_polynomial(evaluation_point),
-            Fr::zero()
         );
         let mut commitments = commitments.into_iter();
         let openings = [a, b, c].map(|poly| {
@@ -162,8 +155,6 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
             z,
             zw,
         };
-        let good = r.1 - quotient_eval * domain.evaluate_vanishing_polynomial(evaluation_point);
-        assert_eq!(good, Fr::zero());
         let t = quotient.commit(&scheme);
         Proof {
             a,
@@ -184,7 +175,7 @@ fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &K
     let (alpha, beta, gamma, point) = challenges;
     let acc_commitment = proof.permutation.commitment.clone();
     let eval_point = proof.evaluation_point;
-    if eval_point != domain.element(point) {
+    if eval_point != point {
         return false;
     };
     let quotient = proof.t.clone();
@@ -210,17 +201,15 @@ fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &K
     scheme.verify(&final_check, &r_opening, eval_point)
 }
 ///generates alpha, beta, gamma and the eval point
-fn verify_challenges(proof: &Proof, rows: usize) -> (Fr, Fr, Fr, usize) {
+fn verify_challenges(proof: &Proof, rows: usize) -> (Fr, Fr, Fr, Fr) {
     let commitments = [&proof.a, &proof.b, &proof.c].map(|proof| proof.commitment.clone());
     let challenge_generator = ChallengeGenerator::with_digest(&commitments);
     let challenge: [Fr; 2] = challenge_generator.generate_challenges();
     let mut challenge_generator = ChallengeGenerator::with_digest(&commitments);
     challenge_generator.digest(&proof.permutation.commitment);
-    let perm = challenge_generator.clone().generate_evaluation_point(rows);
-    let [alpha] = challenge_generator.generate_challenges();
+    let [alpha, point] = challenge_generator.generate_challenges();
 
-    (alpha, challenge[0], challenge[1], perm)
-    //(Fr::from(10), Fr::from(25), perm)
+    (alpha, challenge[0], challenge[1], point)
 }
 fn verify_openings(proof: Proof, scheme: &KzgScheme, w: Fr) -> Option<([Fr; 3], (Fr, Fr))> {
     let Proof {
@@ -373,7 +362,6 @@ fn linearisation_poly<const I: usize>(
     let [a, b, c] = advice_evals;
     let [alpha, beta, gamma] = challenges;
     let line1 = q_l.mul(a) + (&(q_r.mul(b)) - &(q_o.mul(c))) + (&q_m.mul(a * b) + q_c);
-    assert!(line1.evaluate(&eval_point).is_zero());
 
     let line2 = cosets
         .iter()
@@ -399,20 +387,16 @@ fn linearisation_poly<const I: usize>(
         .mul(acc_evals[1]);
 
     let copy_constrain = &line2 - &line3;
-    assert!(copy_constrain.evaluate(&eval_point).is_zero());
 
     let l0_eval = l0_poly(*domain).evaluate(&eval_point);
     let l0_eval = Poly::from_coefficients_vec(vec![l0_eval]);
     let line4 = add_to_poly(acc, Fr::from(-1)).mul(&l0_eval);
-    assert!(line4.evaluate(&eval_point).is_zero());
 
     let line5 = t
         .compact(eval_point)
         .mul(domain.evaluate_vanishing_polynomial(eval_point));
 
     let r = &(line1 + copy_constrain.mul(alpha) + line4.mul(alpha.square())) - &line5;
-
-    assert!(r.evaluate(&eval_point).is_zero());
     r
 }
 
