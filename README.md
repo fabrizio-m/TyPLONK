@@ -1,4 +1,14 @@
-A tiny PLONK implementation, WIP.
+A tiny PLONK implementation.
+
+Todo:
+- Add support for public inputs.
+- Maybe add opening batching optimization.
+- Randomize commitments.
+- Improve kzg implementation.
+- Improve circuit building utilities.
+- More examples.
+- Benchmarks.
+- Improve code and documentation.
 
 ```rust 
 use plonk::{
