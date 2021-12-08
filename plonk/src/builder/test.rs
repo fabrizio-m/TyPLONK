@@ -1,5 +1,8 @@
-use super::{CircuitBuilder, Variable};
-use crate::{proof::Proof, CompiledCircuit};
+use crate::{
+    builder::{CircuitBuilder, Variable},
+    proof::Proof,
+    CompiledCircuit,
+};
 use ark_bls12_381::Fr;
 use ark_poly::EvaluationDomain;
 fn circuit1(circuit: [Variable; 5]) {
