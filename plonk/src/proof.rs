@@ -22,7 +22,8 @@ use std::{
 mod challenges;
 
 impl<const I: usize> CompiledCircuit<I> {
-    pub fn prove(&self, inputs: [Fr; I], circuit: impl Fn([Variable; I])) -> Proof {
+    pub fn prove(&self, inputs: [impl Into<Fr>; I], circuit: impl Fn([Variable; I])) -> Proof {
+        let inputs = inputs.map(Into::into);
         let advice: [Vec<Fr>; 3] = Default::default();
         let advice = Rc::new(Mutex::new(advice));
         let inputs = inputs.map(|input| Variable::Compute {

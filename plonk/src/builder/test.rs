@@ -25,16 +25,7 @@ fn circuit2(circuit: [Variable; 3]) {
 #[test]
 fn circuit1_test() {
     let circuit = CircuitBuilder::compile(circuit1);
-    let proof = circuit.prove(
-        [
-            Fr::from(2),
-            Fr::from(7),
-            Fr::from(2),
-            Fr::from(3),
-            Fr::from(4),
-        ],
-        circuit1,
-    );
+    let proof = circuit.prove([2, 7, 2, 3, 4], circuit1);
     println!("proof");
     //println!("{:#?}", proof.a);
     assert!(circuit.verify(proof));
@@ -43,7 +34,7 @@ fn circuit1_test() {
 #[test]
 fn circuit2_test() {
     let circuit = CircuitBuilder::compile(circuit2);
-    let proof = circuit.prove([Fr::from(3), Fr::from(4), Fr::from(6)], circuit2);
+    let proof = circuit.prove([3, 4, 6], circuit2);
     println!("proof");
     //println!("{:#?}", proof.a);
     assert!(circuit.verify(proof));

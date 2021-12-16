@@ -31,7 +31,7 @@ fn circuit(circuit: [Variable; 3]) {
 
 fn main() {
     let circuit = CircuitBuilder::compile(circuit);
-    let proof = circuit.prove([Fr::from(3), Fr::from(4), Fr::from(6)], circuit);
+    let proof = circuit.prove([3, 4, 6], circuit2);
     assert!(circuit.verify(proof));
 }
 ```
