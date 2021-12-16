@@ -11,3 +11,6 @@ ark-poly = "0.3"
 ark-ec = "0.3"
 ark-bls12-381 = "0.3"
 rand = {version = "0.8", optional = true}
+
+[features]
+default = ["rand"]
