@@ -157,7 +157,7 @@ pub enum Variable {
 }
 
 impl Variable {
-    fn equal_to(&mut self, other: &Variable) -> bool {
+    fn assert_eq(&mut self, other: &Variable) -> bool {
         match self {
             Variable::Build {
                 context,

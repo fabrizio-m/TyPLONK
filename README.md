@@ -20,7 +20,7 @@ fn circuit(circuit: [Variable; 3]) {
     let c = c.clone() * c;
     let mut d = a + b;
 
-    d.equal_to(&c);
+    d.assert_eq(&c);
 }
 
 fn main() {

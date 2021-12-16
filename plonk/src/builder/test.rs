@@ -3,7 +3,7 @@ fn circuit1(circuit: [Variable; 5]) {
     let [a, b, c, d, e] = circuit;
     let x = (c + d) + e;
     let mut a = a + b;
-    a.equal_to(&x);
+    a.assert_eq(&x);
 }
 fn circuit2(circuit: [Variable; 3]) {
     let [a, b, c] = circuit;
@@ -13,7 +13,7 @@ fn circuit2(circuit: [Variable; 3]) {
     let mut d = a + b;
 
     //let mut a = a + b;
-    d.equal_to(&c);
+    d.assert_eq(&c);
 }
 
 #[test]
