@@ -11,7 +11,7 @@ Todo:
 - Improve code and documentation.
 
 ```rust 
-use crate::builder::{CircuitBuilder, Variable};
+use plonk::builder::{CircuitBuilder, Variable};
 
 fn circuit(circuit: [Variable; 3]) {
     let [a, b, c] = circuit;
