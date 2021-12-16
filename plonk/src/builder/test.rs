@@ -1,10 +1,4 @@
-use crate::{
-    builder::{CircuitBuilder, Variable},
-    proof::Proof,
-    CompiledCircuit,
-};
-use ark_bls12_381::Fr;
-use ark_poly::EvaluationDomain;
+use crate::builder::{CircuitBuilder, Variable};
 fn circuit1(circuit: [Variable; 5]) {
     let [a, b, c, d, e] = circuit;
     let x = (c + d) + e;

@@ -11,13 +11,7 @@ Todo:
 - Improve code and documentation.
 
 ```rust 
-use plonk::{
-    builder::{CircuitBuilder, Variable},
-    proof::Proof,
-    CompiledCircuit,
-};
-use ark_bls12_381::Fr;
-use ark_poly::EvaluationDomain;
+use crate::builder::{CircuitBuilder, Variable};
 
 fn circuit(circuit: [Variable; 3]) {
     let [a, b, c] = circuit;
