@@ -1,12 +1,12 @@
 use crate::Poly;
 use ark_bls12_381::Fr;
-use ark_ff::{One, UniformRand, Zero};
+use ark_ff::{One, Zero};
 use ark_poly::{
     univariate::{DenseOrSparsePolynomial, SparsePolynomial},
     EvaluationDomain, Polynomial, UVPolynomial,
 };
 use kgz::{KzgCommitment, KzgOpening, KzgScheme};
-use std::{convert::TryInto, iter::repeat_with, ops::Mul};
+use std::ops::Mul;
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
     if poly.coeffs.is_empty() {
@@ -19,7 +19,7 @@ pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
 
 ///with [D] for the max degree for each slice, and [S] as the number of slices
 #[derive(Debug)]
-pub struct SlicedPoly<const S: usize> {
+pub(crate) struct SlicedPoly<const S: usize> {
     slices: [Poly; S],
     //the degree of each slice
     degree: usize,

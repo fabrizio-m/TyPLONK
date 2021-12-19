@@ -11,10 +11,11 @@ use std::{
     sync::Mutex,
 };
 
+#[cfg(test)]
 mod test;
 
 #[derive(Debug)]
-struct CircuitBuilder {
+pub struct CircuitBuilder {
     gates: Vec<Gate>,
     permutation: PermutationBuilder<3>,
 }

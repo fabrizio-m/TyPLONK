@@ -4,7 +4,7 @@ use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain};
 use kgz::{srs::Srs, KzgCommitment};
 use permutation::CompiledPermutation;
 
-mod builder;
+pub mod builder;
 mod proof;
 mod utils;
 

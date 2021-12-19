@@ -3,7 +3,7 @@ use ark_ff::UniformRand;
 use ark_serialize::CanonicalSerialize;
 use blake2::{Blake2b, Digest};
 use kgz::KzgCommitment;
-use rand::{prelude::StdRng, Rng, SeedableRng};
+use rand::{prelude::StdRng, SeedableRng};
 
 #[derive(Clone)]
 pub struct ChallengeGenerator {
@@ -42,9 +42,5 @@ impl ChallengeGenerator {
 
         let points = [0; N];
         points.map(|_| Fr::rand(&mut rng))
-    }
-    fn generate_evaluation_point(self, max: usize) -> usize {
-        let mut rng = self.generate_rng();
-        rng.gen_range(0..max)
     }
 }

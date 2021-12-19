@@ -1,7 +1,6 @@
 use crate::{srs::Srs, Poly as MyPoly};
 use ark_bls12_381::{Bls12_381, Fr};
-use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::Field;
+use ark_ec::{AffineCurve, PairingEngine};
 use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
 use std::{
     fmt::{Debug, Display},
@@ -69,10 +68,9 @@ impl<'a> KzgScheme<'a> {
         commitment: &KzgCommitment,
         opening: &KzgOpening,
         z: impl Into<Fr> + Debug + Display,
-        //y: impl Into<Fr> + Debug,
     ) -> bool {
         let y = opening.1;
-        let g1 = self.0.g1_ref();
+        //let g1 = self.0.g1_ref();
         let g2s = self.0.g2s_ref();
         let g2 = self.0.g2_ref();
         let a = g2s.clone().into_projective() - (g2.mul(z.into()));
