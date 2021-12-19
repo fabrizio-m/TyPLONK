@@ -9,8 +9,12 @@ use kgz::{KzgCommitment, KzgOpening, KzgScheme};
 use std::{convert::TryInto, iter::repeat_with, ops::Mul};
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
-    poly.coeffs[0] += number;
-    poly
+    if poly.coeffs.is_empty() {
+        Poly::from_coefficients_vec(vec![number])
+    } else {
+        poly.coeffs[0] += number;
+        poly
+    }
 }
 
 ///with [D] for the max degree for each slice, and [S] as the number of slices

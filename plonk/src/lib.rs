@@ -30,11 +30,8 @@ struct GateConstrains {
     fixed_commitments: [KzgCommitment; 5],
 }
 
-#[test]
-fn vanish() {
-    use ark_poly::UVPolynomial;
-    use kgz::print_poly;
-    let poly = Poly::from_coefficients_slice(&[Fr::from(1), Fr::from(2), Fr::from(3)]);
-    print_poly(&poly);
-    println!("{:#?}", poly);
+impl GateConstrains {
+    fn len(&self) -> usize {
+        self.q_l.len()
+    }
 }

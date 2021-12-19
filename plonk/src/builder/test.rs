@@ -12,14 +12,13 @@ fn circuit2(circuit: [Variable; 3]) {
     let c = c.clone() * c;
     let mut d = a + b;
 
-    //let mut a = a + b;
     d.assert_eq(&c);
 }
 
 #[test]
 fn circuit1_test() {
     let circuit = CircuitBuilder::compile(circuit1);
-    let proof = circuit.prove([2, 7, 2, 3, 4], circuit1);
+    let proof = circuit.prove([2, 7, 2, 3, 4], circuit1, vec![0]);
     println!("proof");
     //println!("{:#?}", proof.a);
     assert!(circuit.verify(proof));
@@ -28,7 +27,7 @@ fn circuit1_test() {
 #[test]
 fn circuit2_test() {
     let circuit = CircuitBuilder::compile(circuit2);
-    let proof = circuit.prove([3, 4, 6], circuit2);
+    let proof = circuit.prove([3, 4, 6], circuit2, vec![0]);
     println!("proof");
     //println!("{:#?}", proof.a);
     assert!(circuit.verify(proof));

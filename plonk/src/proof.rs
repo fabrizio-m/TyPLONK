@@ -22,8 +22,18 @@ use std::{
 mod challenges;
 
 impl<const I: usize> CompiledCircuit<I> {
-    pub fn prove(&self, inputs: [impl Into<Fr>; I], circuit: impl Fn([Variable; I])) -> Proof {
+    pub fn prove(
+        &self,
+        inputs: [impl Into<Fr>; I],
+        circuit: impl Fn([Variable; I]),
+        public_inputs: Vec<impl Into<Fr>>,
+    ) -> Proof {
         let inputs = inputs.map(Into::into);
+        let public_inputs = public_inputs
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<_>>();
+
         let advice: [Vec<Fr>; 3] = Default::default();
         let advice = Rc::new(Mutex::new(advice));
         let inputs = inputs.map(|input| Variable::Compute {
@@ -38,7 +48,14 @@ impl<const I: usize> CompiledCircuit<I> {
         }
         let advice =
             advice.map(|col| Evaluations::from_vec_and_domain(col, self.domain).interpolate());
-        let proof = prove(&self, advice);
+        //let public_inputs =
+        //Evaluations::from_vec_and_domain(public_inputs.to_vec(), self.domain).interpolate();
+        let mut public_inputs = public_inputs.to_vec();
+        public_inputs.resize(self.rows, Fr::zero());
+        println!("public len: {}", public_inputs.len());
+        println!("public len2: {}", self.gate_constrains.len());
+
+        let proof = prove(&self, advice, public_inputs);
         proof
     }
 
@@ -77,8 +94,13 @@ pub struct Proof {
     pub evaluation_point: Fr,
     t: [KzgCommitment; 3],
     r: KzgOpening,
+    pub public_inputs: Vec<Fr>,
 }
-fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Proof {
+fn prove<const I: usize>(
+    circuit: &CompiledCircuit<I>,
+    advice: [Poly; 3],
+    public_inputs: Vec<Fr>,
+) -> Proof {
     let scheme = KzgScheme::new(&circuit.srs);
     let domain = &circuit.domain;
     println!("domain size: {}", domain.size());
@@ -86,6 +108,8 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
     let w = domain.element(1);
     println!("W:{}", w);
 
+    let public_inputs_poly =
+        Evaluations::from_vec_and_domain(public_inputs.clone(), *domain).interpolate();
     let commitments = {
         let [a, b, c] = &advice;
         round1(&a, &b, &c, &scheme)
@@ -116,11 +140,13 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
 
     let [alpha, evaluation_point] = challenge_generator.generate_challenges();
     let proof = {
+        let public_eval = public_inputs_poly.evaluate(&evaluation_point);
         let quotient = quotient_polynomial(
             circuit,
             [&a, &b, &c],
             (&acc_poly, &acc_poly_w),
             [alpha, beta, gamma],
+            public_inputs_poly,
         );
         let mut commitments = commitments.into_iter();
         let openings = [a, b, c].map(|poly| {
@@ -149,6 +175,7 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
             [alpha, beta, gamma],
             evaluation_point,
             &quotient,
+            public_eval,
         );
         let r = scheme.open(linearisation, evaluation_point);
         let permutation = PermutationProof {
@@ -165,15 +192,21 @@ fn prove<const I: usize>(circuit: &CompiledCircuit<I>, advice: [Poly; 3]) -> Pro
             evaluation_point,
             t,
             r,
+            public_inputs,
         }
     };
     proof
 }
 fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &KzgScheme) -> bool {
     let domain = &circuit.domain;
-    let challenges = verify_challenges(&proof, circuit.rows);
+    let challenges = verify_challenges(&proof);
 
     let (alpha, beta, gamma, point) = challenges;
+    let mut public_inputs = proof.public_inputs.clone();
+    public_inputs.resize(circuit.rows, Fr::zero());
+    let public_eval = Evaluations::from_vec_and_domain(public_inputs.clone(), *domain)
+        .interpolate()
+        .evaluate(&point);
     let acc_commitment = proof.permutation.commitment.clone();
     let eval_point = proof.evaluation_point;
     if eval_point != point {
@@ -196,13 +229,14 @@ fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &K
         eval_point,
         quotient,
         [alpha, beta, gamma],
+        public_eval,
     );
 
     let final_check = r;
     scheme.verify(&final_check, &r_opening, eval_point)
 }
 ///generates alpha, beta, gamma and the eval point
-fn verify_challenges(proof: &Proof, rows: usize) -> (Fr, Fr, Fr, Fr) {
+fn verify_challenges(proof: &Proof) -> (Fr, Fr, Fr, Fr) {
     let commitments = [&proof.a, &proof.b, &proof.c].map(|proof| proof.commitment.clone());
     let challenge_generator = ChallengeGenerator::with_digest(&commitments);
     let challenge: [Fr; 2] = challenge_generator.generate_challenges();
@@ -263,6 +297,7 @@ fn quotient_polynomial<const I: usize>(
     acc: (&Poly, &Poly),
     // challenges alpha, beta, gamma
     challenges: [Fr; 3],
+    public_inputs: Poly,
 ) -> SlicedPoly<3> {
     let domain = &circuit.domain;
     let w = domain.element(1);
@@ -282,7 +317,8 @@ fn quotient_polynomial<const I: usize>(
 
     let line1 = &(&(q_l.naive_mul(a) + q_r.naive_mul(b)) - &(q_o.naive_mul(c))
         + q_m.naive_mul(a).naive_mul(b))
-        + q_c;
+        + q_c
+        + public_inputs;
     vanishes(&line1, *domain);
 
     let line2 = [a, b, c]
@@ -347,6 +383,7 @@ fn linearisation_poly<const I: usize>(
     challenges: [Fr; 3],
     eval_point: Fr,
     t: &SlicedPoly<3>,
+    public_eval: Fr,
 ) -> Poly {
     let domain = &circuit.domain;
     let gates = &circuit.gate_constrains;
@@ -363,6 +400,7 @@ fn linearisation_poly<const I: usize>(
     let [a, b, c] = advice_evals;
     let [alpha, beta, gamma] = challenges;
     let line1 = q_l.mul(a) + (&(q_r.mul(b)) - &(q_o.mul(c))) + (&q_m.mul(a * b) + q_c);
+    let line1 = add_to_poly(line1, public_eval);
 
     let line2 = cosets
         .iter()
@@ -410,6 +448,7 @@ fn linearisation_commitment<const I: usize>(
     quotient: [KzgCommitment; 3],
     //alpha,beta,gamma
     challenges: [Fr; 3],
+    public_eval: Fr,
 ) -> KzgCommitment {
     let srs = &circuit.srs;
     let scheme = KzgScheme::new(srs);
@@ -458,7 +497,7 @@ fn linearisation_commitment<const I: usize>(
         .reduce(Mul::mul)
         .unwrap();
     let constant_perm = constant_perm * (advice_evals[2] + gamma) * acc_evals[1];
-    let constant = alpha * constant_perm + l0_eval * alpha.square();
+    let constant = alpha * constant_perm + l0_eval * alpha.square() + public_eval;
     let scheme = KzgScheme::new(&circuit.srs);
 
     line1 + (line2 - (line3 + scheme.identity() * constant)) - line5

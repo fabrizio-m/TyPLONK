@@ -1,7 +1,6 @@
 A tiny PLONK implementation.
 
 Todo:
-- Add support for public inputs.
 - Maybe add opening batching optimization.
 - Randomize commitments.
 - Improve kzg implementation.
@@ -25,7 +24,7 @@ fn circuit(circuit: [Variable; 3]) {
 
 fn main() {
     let circuit = CircuitBuilder::compile(circuit);
-    let proof = circuit.prove([3, 4, 6], circuit2);
+    let proof = circuit.prove([3, 4, 6], circuit, vec![0]);
     assert!(circuit.verify(proof));
 }
 ```
