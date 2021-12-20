@@ -2,7 +2,6 @@ A tiny PLONK implementation.
 
 Todo:
 - Maybe add opening batching optimization.
-- Randomize commitments.
 - Improve kzg implementation.
 - Improve circuit building utilities.
 - More examples.

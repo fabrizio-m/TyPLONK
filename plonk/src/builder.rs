@@ -74,7 +74,7 @@ impl CircuitBuilder {
                 *state = old * 2;
                 Some(old)
             })
-            .find(|size| size >= &rows)
+            .find(|size| *size >= rows + 3)
             .unwrap();
         self.gates.resize(size, Gate::Dummy);
     }

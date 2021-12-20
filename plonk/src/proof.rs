@@ -4,7 +4,7 @@ use crate::{
     CompiledCircuit, GateConstrains, Poly,
 };
 use ark_bls12_381::Fr;
-use ark_ff::{Field, One, Zero};
+use ark_ff::{Field, One, UniformRand, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, Polynomial, UVPolynomial,
 };
@@ -41,19 +41,19 @@ impl<const I: usize> CompiledCircuit<I> {
             advice_values: advice.clone(),
         });
         circuit(inputs);
-        let mut advice = Rc::try_unwrap(advice).unwrap().into_inner().unwrap();
-        for c in advice.iter_mut() {
-            c.reverse();
-            c.reverse();
-        }
-        let advice =
-            advice.map(|col| Evaluations::from_vec_and_domain(col, self.domain).interpolate());
-        //let public_inputs =
-        //Evaluations::from_vec_and_domain(public_inputs.to_vec(), self.domain).interpolate();
+        let advice = Rc::try_unwrap(advice).unwrap().into_inner().unwrap();
+        let mut rng = rand::thread_rng();
+        let advice = advice
+            .map(|mut col| {
+                col.resize(self.rows - 3, Fr::zero());
+                let r = [(); 3].map(|_| Fr::rand(&mut rng));
+                col.extend_from_slice(&r);
+                col
+            })
+            .map(|col| Evaluations::from_vec_and_domain(col, self.domain).interpolate());
+
         let mut public_inputs = public_inputs.to_vec();
         public_inputs.resize(self.rows, Fr::zero());
-        println!("public len: {}", public_inputs.len());
-        println!("public len2: {}", self.gate_constrains.len());
 
         let proof = prove(&self, advice, public_inputs);
         proof
@@ -104,7 +104,6 @@ fn prove<const I: usize>(
     let scheme = KzgScheme::new(&circuit.srs);
     let domain = &circuit.domain;
     println!("domain size: {}", domain.size());
-    let rows = circuit.rows;
     let w = domain.element(1);
     println!("W:{}", w);
 
