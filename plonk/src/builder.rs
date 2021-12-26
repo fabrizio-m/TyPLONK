@@ -5,16 +5,17 @@ use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
 use kgz::{srs::Srs, KzgScheme};
 use permutation::{PermutationBuilder, Tag};
 use std::{
+    collections::HashMap,
     iter::repeat,
     ops::{Add, Mul},
     rc::Rc,
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
+    },
 };
 
-#[cfg(test)]
-mod test;
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CircuitBuilder {
     gates: Vec<Gate>,
     permutation: PermutationBuilder<3>,
@@ -79,24 +80,17 @@ impl CircuitBuilder {
         self.gates.resize(size, Gate::Dummy);
     }
     pub fn compile<const I: usize>(circuit: impl Fn([Variable; I])) -> CompiledCircuit<I> {
-        let builder = Rc::new(Mutex::new(Self::new()));
-        let context = Context { builder };
+        //let builder = Rc::new(Mutex::new(Self::new()));
+        let context = Context::default();
         let inputs = [(); I].map(|_| Variable::input(&context));
         circuit(inputs);
-        let mut builder = Rc::try_unwrap(context.builder)
-            .unwrap()
-            .into_inner()
-            .unwrap();
-        builder.fill();
+
+        let (gates, mut permutation) = context.finish();
 
         {
-            let rows = builder.gates.len();
+            let rows = gates.len();
             let domain = <GeneralEvaluationDomain<Fr>>::new(rows).unwrap();
             let srs = Srs::random(domain.size());
-            let CircuitBuilder {
-                gates,
-                mut permutation,
-            } = builder;
             let mut polys = [(); 5].map(|_| <Vec<Fr>>::with_capacity(rows));
             gates.into_iter().for_each(|gate| {
                 let row = gate.to_row();
@@ -139,123 +133,178 @@ impl CircuitBuilder {
         }
     }
 }
-#[derive(Clone)]
+
+#[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VarId(usize);
+
+#[derive(Default, Debug)]
+pub struct InnerContext {
+    builder: CircuitBuilder,
+    next_var_id: AtomicUsize,
+    pending_eq: Vec<(VarId, VarId)>,
+    var_map: HashMap<VarId, Tag>,
+}
+
+#[derive(Clone, Default, Debug)]
 pub struct Context {
-    builder: Rc<Mutex<CircuitBuilder>>,
+    inner: Rc<Mutex<InnerContext>>,
+}
+
+impl Context {
+    fn new_id(&self) -> VarId {
+        let id = self
+            .inner
+            .lock()
+            .unwrap()
+            .next_var_id
+            .fetch_add(1, Ordering::Relaxed);
+        VarId(id)
+    }
+    fn add_gate(&mut self, gate: Gate) -> usize {
+        let builder = &mut self.inner.lock().unwrap().builder;
+        builder.add_gate(gate)
+    }
+    fn add_var(&self, id: VarId, tag: Tag) {
+        self.inner.lock().unwrap().var_map.insert(id, tag);
+    }
+    fn get_var(&self, id: &VarId) -> Option<Tag> {
+        self.inner.lock().unwrap().var_map.get(id).cloned()
+    }
+    fn add_eq(&mut self, left: VarId, right: VarId) {
+        println!("new eq: {} = {}", &left.0, &right.0);
+        let [a, b] = [left, right].map(|id| self.get_var(&id));
+        let context = &mut self.inner.lock().unwrap();
+        match a.zip(b) {
+            Some((left, right)) => {
+                println!("tags: {:?} = {:?}", &left, &right);
+                context
+                    .builder
+                    .permutation
+                    .add_constrain(left, right)
+                    .unwrap();
+            }
+            None => {
+                context.pending_eq.push((left, right));
+            }
+        }
+    }
+    fn finish(mut self) -> (Vec<Gate>, PermutationBuilder<3>) {
+        let pending_eq = {
+            let mut inner = self.inner.lock().unwrap();
+            std::mem::take(&mut inner.pending_eq)
+        };
+        for (left, right) in pending_eq {
+            self.add_eq(left, right);
+        }
+        let mut inner = Rc::try_unwrap(self.inner).unwrap().into_inner().unwrap();
+        assert!(inner.pending_eq.is_empty());
+        inner.builder.fill();
+        let InnerContext {
+            builder: CircuitBuilder {
+                gates, permutation, ..
+            },
+            ..
+        } = inner;
+        (gates, permutation)
+    }
 }
 
 #[derive(Clone)]
 pub enum Variable {
     Build {
         context: Context,
-        input: bool,
-        gate_index: Option<usize>,
+        id: VarId,
     },
     Compute {
         value: Fr,
         advice_values: Rc<Mutex<[Vec<Fr>; 3]>>,
     },
 }
+//#[derive(Clone)]
+//pub struct Variable2 {
+//class: VarClass,
+//id: VarId,
+//}
 
 impl Variable {
-    fn assert_eq(&mut self, other: &Variable) -> bool {
+    pub fn assert_eq(&mut self, other: &Variable) {
         match self {
-            Variable::Build {
-                context,
-                input,
-                gate_index,
-            } => {
-                let mut builder = context.builder.lock().unwrap();
-                builder
-                    .permutation
-                    .add_constrain(
-                        Tag {
-                            i: 2,
-                            j: gate_index.unwrap(),
-                        },
-                        Tag {
-                            i: 2,
-                            j: other.index(),
-                        },
-                    )
-                    .unwrap();
-                true
+            Variable::Build { context, id } => {
+                let left = id;
+                match other {
+                    Variable::Build { id, .. } => {
+                        context.add_eq(*left, *id);
+                    }
+                    _ => unreachable!(),
+                }
             }
-            Variable::Compute {
-                value,
-                advice_values: _,
-            } => value == other.value(),
-        }
+            _ => {}
+        };
     }
+    fn attempt_eq(context: &mut Context, left: (usize, Option<Tag>), right: (usize, Tag)) {}
     fn input(context: &Context) -> Self {
+        let id = context.new_id();
         Self::Build {
+            id,
             context: context.clone(),
-            input: true,
-            gate_index: None,
         }
     }
 
     fn binary_operation(self, right: Variable, operation: GateOperation) -> Variable {
+        //let Variable { id, class } = self;
+        //let left_id = id;
+        //let right_id = right.id;
         match self {
-            Variable::Build {
-                context,
-                input,
-                gate_index,
-            } => {
-                let index = {
-                    let mut builder = context.builder.lock().unwrap();
-                    let left_index = gate_index;
-                    let gate_index = builder.add_gate(operation.build());
-                    let permutation = &mut builder.permutation;
-                    if !input {
-                        permutation
-                            .add_constrain(
-                                Tag {
-                                    i: 2,
-                                    j: left_index.unwrap(),
-                                },
-                                Tag {
-                                    i: 0,
-                                    j: gate_index,
-                                },
-                            )
-                            .unwrap();
+            Variable::Build { mut context, id } => {
+                let right_id = match right {
+                    Variable::Build { id, .. } => id,
+                    _ => {
+                        unreachable!()
                     }
-                    if !right.is_input() {
-                        permutation
-                            .add_constrain(
-                                Tag {
-                                    i: 2,
-                                    j: right.index(),
-                                },
-                                Tag {
-                                    i: 1,
-                                    j: gate_index,
-                                },
-                            )
-                            .unwrap();
-                    }
-                    gate_index
                 };
+                let ids = [(id, 0_usize), (right_id, 1)];
+
+                let j = context.add_gate(operation.build());
+                let output_tag = Tag { i: 2, j };
+                let id = context.new_id();
+                {
+                    context.add_var(id, output_tag);
+                }
+                ids.into_iter()
+                    .map(|(id, i)| (id, context.clone().get_var(&id), i))
+                    .for_each(|(id, tag, i)| {
+                        let mut context = context.clone();
+                        match tag {
+                            Some(_) => {
+                                let new_id = context.new_id();
+                                context.add_var(new_id, Tag { i, j });
+                                context.add_eq(id, new_id);
+                            }
+                            None => {
+                                context.add_var(id, Tag { i, j });
+                            }
+                        };
+                    });
                 Variable::Build {
-                    context,
-                    gate_index: Some(index),
-                    input: false,
+                    id,
+                    context: context.clone(),
                 }
             }
             Variable::Compute {
                 value,
                 advice_values,
             } => {
-                let a = value;
-                let b = *right.value();
-                let c = operation.compute(a, b);
-                let value = c;
+                let left = value;
+                let right = match right {
+                    Variable::Compute { value, .. } => value,
+                    _ => unreachable!(),
+                };
+                let value = operation.compute(left, right);
                 {
                     let mut advice = advice_values.lock().unwrap();
                     advice
                         .iter_mut()
-                        .zip([a, b, c].into_iter())
+                        .zip([left, right, value].into_iter())
                         .for_each(|(col, value)| col.push(value));
                 }
                 Variable::Compute {
@@ -265,17 +314,14 @@ impl Variable {
             }
         }
     }
-    fn is_input(&self) -> bool {
+    /*fn is_input(&self) -> bool {
         match self {
             Variable::Build { input, .. } => *input,
             _ => unreachable!(),
         }
-    }
+    }*/
     fn index(&self) -> usize {
-        match self {
-            Variable::Build { gate_index, .. } => gate_index.unwrap(),
-            Variable::Compute { .. } => unreachable!(),
-        }
+        0
     }
     fn value(&self) -> &Fr {
         match self {
@@ -285,11 +331,6 @@ impl Variable {
     }
 }
 
-enum VarType {
-    Input(usize),
-    Sum(Rc<Variable>, Rc<Variable>),
-    Mul(Rc<Variable>, Rc<Variable>),
-}
 enum GateOperation {
     Input,
     Sum,
@@ -298,11 +339,13 @@ enum GateOperation {
 
 impl GateOperation {
     fn compute(self, a: Fr, b: Fr) -> Fr {
-        match self {
+        let d = match self {
             GateOperation::Input => panic!("don't"),
             GateOperation::Sum => a + b,
             GateOperation::Mul => a * b,
-        }
+        };
+        println!("compute result:{}", d);
+        d
     }
     fn build(self) -> Gate {
         match self {

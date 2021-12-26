@@ -3,7 +3,6 @@ A tiny PLONK implementation.
 Todo:
 - Maybe add opening batching optimization.
 - Improve kzg implementation.
-- Improve circuit building utilities.
 - More examples.
 - Benchmarks.
 - Improve code and documentation.
@@ -11,7 +10,7 @@ Todo:
 ```rust 
 use plonk::builder::{CircuitBuilder, Variable};
 
-fn circuit(circuit: [Variable; 3]) {
+fn circuit1(circuit: [Variable; 3]) {
     let [a, b, c] = circuit;
     let a = a.clone() * a;
     let b = b.clone() * b;
@@ -21,9 +20,12 @@ fn circuit(circuit: [Variable; 3]) {
     d.assert_eq(&c);
 }
 
+
 fn main() {
-    let circuit = CircuitBuilder::compile(circuit);
-    let proof = circuit.prove([3, 4, 6], circuit, vec![0]);
+    let circuit = CircuitBuilder::compile(circuit1);
+    let proof = circuit.prove([3, 4, 5], circuit1, vec![0]);
     assert!(circuit.verify(proof));
+    let proof = circuit.prove([3, 4, 6], circuit1, vec![0]);
+    assert!(!circuit.verify(proof));
 }
 ```

@@ -1,4 +1,4 @@
-use crate::builder::{CircuitBuilder, Variable};
+use crate::builder2::{CircuitBuilder, Variable};
 fn circuit1(circuit: [Variable; 5]) {
     let [a, b, c, d, e] = circuit;
     let x = (c + d) + e;
@@ -19,16 +19,14 @@ fn circuit2(circuit: [Variable; 3]) {
 fn circuit1_test() {
     let circuit = CircuitBuilder::compile(circuit1);
     let proof = circuit.prove([2, 7, 2, 3, 4], circuit1, vec![0]);
-    println!("proof");
-    //println!("{:#?}", proof.a);
     assert!(circuit.verify(proof));
 }
 
 #[test]
 fn circuit2_test() {
     let circuit = CircuitBuilder::compile(circuit2);
-    let proof = circuit.prove([3, 4, 6], circuit2, vec![0]);
-    println!("proof");
-    //println!("{:#?}", proof.a);
+    let proof = circuit.prove([3, 4, 5], circuit2, vec![0]);
     assert!(circuit.verify(proof));
+    let proof = circuit.prove([3, 4, 6], circuit2, vec![0]);
+    assert!(!circuit.verify(proof));
 }
