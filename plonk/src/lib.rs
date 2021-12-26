@@ -29,9 +29,3 @@ struct GateConstrains {
     q_c: Poly,
     fixed_commitments: [KzgCommitment; 5],
 }
-
-impl GateConstrains {
-    fn len(&self) -> usize {
-        self.q_l.len()
-    }
-}

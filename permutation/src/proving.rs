@@ -1,10 +1,10 @@
 use crate::CompiledPermutation;
 use ark_bls12_381::Fr;
-use ark_ff::{One, Zero};
+use ark_ff::One;
 use std::iter::Iterator;
 
 impl<const C: usize> CompiledPermutation<C> {
-    pub fn prove(&self, values: &[Vec<Fr>; C], beta: Fr, lambda: Fr) -> Vec<Fr> {
+    pub fn prove(&self, values: &[Vec<Fr>; C], beta: Fr, gamma: Fr) -> Vec<Fr> {
         let cosets = self.cosets;
         let perms = &self.cols;
         assert_eq!(cosets.len(), C);
@@ -14,46 +14,20 @@ impl<const C: usize> CompiledPermutation<C> {
             let mut den = Fr::one();
             let row_val = vals.into_iter().fold(Fr::one(), |state, val| {
                 let (cell_val, (tag, value)) = val;
-                //println!("cell_val: {}", cell_val);
-                let numerator = cell_val + beta * tag + lambda;
-                //println!("num {}", numerator);
+                let numerator = cell_val + beta * tag + gamma;
                 num *= numerator;
-                let denominator = cell_val + beta * value + lambda;
+                let denominator = cell_val + beta * value + gamma;
                 den *= denominator;
-                //println!("den {}", denominator);
                 let result = numerator / denominator;
                 state * result
             });
+
             *state *= row_val;
             Some(*state)
         });
         let iter_one = std::iter::repeat(Fr::one()).take(1);
         let acc = iter_one.clone().chain(acc).collect();
         acc
-    }
-    pub fn verify(
-        &self,
-        point: usize,
-        values: [Fr; C],
-        acc_evals: (Fr, Fr),
-        beta: Fr,
-        lambda: Fr,
-    ) -> bool {
-        let perms = self.cols.iter().map(|e| e[point].clone());
-        let (num, den) = perms
-            .zip(values)
-            .map(|((label, value), val)| {
-                //println!("cell_val: {}", val);
-                let num = val + beta * label + lambda;
-                let den = val + beta * value + lambda;
-                (num, den)
-            })
-            .reduce(|(num1, den1), (num2, den2)| (num1 * num2, den1 * den2))
-            .unwrap();
-        let lhs = acc_evals.1 * den;
-        let rhs = acc_evals.0 * num;
-        let rule1 = lhs - rhs;
-        rule1.is_zero()
     }
     pub fn print(&self, val: bool) {
         let rows = self.rows;
@@ -96,26 +70,4 @@ impl<const C: usize> Iterator for ColIterator<C> {
             })
             .collect()
     }
-}
-
-#[test]
-fn perm() {
-    use crate::{PermutationBuilder, Tag};
-    let advice = [[1, 2, 3], [4, 5, 2], [7, 8, 1]];
-    let mut perm = <PermutationBuilder<3>>::with_rows(3);
-    perm.add_constrain(Tag { i: 0, j: 1 }, Tag { i: 1, j: 2 })
-        .unwrap();
-    perm.add_constrain(Tag { i: 0, j: 0 }, Tag { i: 2, j: 2 })
-        .unwrap();
-    let (beta, lambda) = (Fr::from(10), Fr::from(25));
-    let perm = perm.build(4);
-    let perm = perm.compile();
-    let values = advice
-        .map(|col| col.map(|v| Fr::from(v)))
-        .map(|col| col.to_vec());
-    let proof = perm.prove(&values, beta, lambda);
-    let values = [2, 5, 8].map(|v| Fr::from(v));
-    assert!(perm.verify(1, values, (proof[1], proof[2]), beta, lambda));
-    let values = [1, 5, 8].map(|v| Fr::from(v));
-    assert!(!perm.verify(1, values, (proof[1], proof[2]), beta, lambda));
 }

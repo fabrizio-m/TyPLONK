@@ -103,9 +103,7 @@ fn prove<const I: usize>(
 ) -> Proof {
     let scheme = KzgScheme::new(&circuit.srs);
     let domain = &circuit.domain;
-    println!("domain size: {}", domain.size());
     let w = domain.element(1);
-    println!("W:{}", w);
 
     let public_inputs_poly =
         Evaluations::from_vec_and_domain(public_inputs.clone(), *domain).interpolate();
@@ -122,12 +120,13 @@ fn prove<const I: usize>(
     let (acc_poly, acc_commitment, acc_poly_w) = {
         let domain = domain;
         let mut evals = circuit.copy_constrains.prove(&values, beta, gamma);
+        evals.pop();
         let acc_shifted = {
-            let evals_shifted = &evals[1..];
-            let evals = Evaluations::from_vec_and_domain(evals_shifted.to_vec(), *domain);
+            let mut evals_shifted = evals.clone();
+            evals_shifted.rotate_left(1);
+            let evals = Evaluations::from_vec_and_domain(evals_shifted, *domain);
             evals.interpolate()
         };
-        evals.pop();
         let acc = Evaluations::from_vec_and_domain(evals, domain.clone());
         let acc = acc.interpolate();
         let commitment = scheme.commit(&acc);
@@ -231,8 +230,8 @@ fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &K
         public_eval,
     );
 
-    let final_check = r;
-    scheme.verify(&final_check, &r_opening, eval_point)
+    let open_valid = scheme.verify(&r, &r_opening, eval_point);
+    open_valid && r_opening.1.is_zero()
 }
 ///generates alpha, beta, gamma and the eval point
 fn verify_challenges(proof: &Proof) -> (Fr, Fr, Fr, Fr) {
@@ -369,7 +368,7 @@ fn quotient_polynomial<const I: usize>(
         .reduce(Add::add)
         .unwrap();
 
-    vanishes(&target, *domain);
+    //vanishes(&target, *domain);
     let target = target.divide_by_vanishing_poly(*domain).unwrap();
     SlicedPoly::from_poly(target.0, domain.size())
 }
@@ -504,5 +503,5 @@ fn linearisation_commitment<const I: usize>(
 pub fn vanishes(poly: &Poly, domain: impl EvaluationDomain<Fr>) {
     let (_, rest) = poly.divide_by_vanishing_poly(domain).unwrap();
     assert!(rest.is_zero());
-    println!("vanishes");
+    //println!("vanishes");
 }
