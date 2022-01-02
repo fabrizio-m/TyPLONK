@@ -1,4 +1,4 @@
-use crate::builder2::{CircuitBuilder, Variable};
+use crate::builder::{CircuitBuilder, Variable};
 fn circuit1(circuit: [Variable; 5]) {
     let [a, b, c, d, e] = circuit;
     let x = (c + d) + e;

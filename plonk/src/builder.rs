@@ -14,6 +14,8 @@ use std::{
         Mutex,
     },
 };
+#[cfg(test)]
+mod test;
 
 #[derive(Debug, Default)]
 pub struct CircuitBuilder {
