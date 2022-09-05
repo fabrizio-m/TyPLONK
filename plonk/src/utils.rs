@@ -5,7 +5,9 @@ use ark_poly::{
     univariate::{DenseOrSparsePolynomial, SparsePolynomial},
     EvaluationDomain, Polynomial, UVPolynomial,
 };
-use kgz::{KzgCommitment, KzgOpening, KzgScheme};
+#[cfg(test)]
+use kgz::KzgOpening;
+use kgz::{KzgCommitment, KzgScheme};
 use std::ops::Mul;
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
@@ -43,10 +45,12 @@ impl<const S: usize> SlicedPoly<S> {
         //waiting for array.each_ref()
         self.slices.clone().map(|slice| scheme.commit(&slice))
     }
-    pub fn open(&self, scheme: &KzgScheme, point: Fr) -> [KzgOpening; S] {
+    #[cfg(test)]
+    fn open(&self, scheme: &KzgScheme, point: Fr) -> [KzgOpening; S] {
         self.slices.clone().map(|slice| scheme.open(slice, point))
     }
-    pub fn verify_opening(
+    #[cfg(test)]
+    fn verify_opening(
         commits: &[KzgCommitment; S],
         openings: [KzgOpening; S],
         scheme: &KzgScheme,
@@ -73,7 +77,8 @@ impl<const S: usize> SlicedPoly<S> {
             None
         }
     }
-    pub fn eval(&self, point: Fr) -> Fr {
+    #[cfg(test)]
+    fn eval(&self, point: Fr) -> Fr {
         self.slices
             .iter()
             //.rev()

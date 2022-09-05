@@ -1,5 +1,6 @@
 use crate::{
-    builder::Variable,
+    builder::ComputeVar,
+    description::CircuitDescription,
     utils::{add_to_poly, l0_poly, SlicedPoly},
     CompiledCircuit, GateConstrains, Poly,
 };
@@ -21,13 +22,8 @@ use std::{
 
 mod challenges;
 
-impl<const I: usize> CompiledCircuit<I> {
-    pub fn prove(
-        &self,
-        inputs: [impl Into<Fr>; I],
-        circuit: impl Fn([Variable; I]),
-        public_inputs: Vec<impl Into<Fr>>,
-    ) -> Proof {
+impl<const I: usize, C: CircuitDescription<I>> CompiledCircuit<I, C> {
+    pub fn prove(&self, inputs: [impl Into<Fr>; I], public_inputs: Vec<impl Into<Fr>>) -> Proof {
         let inputs = inputs.map(Into::into);
         let public_inputs = public_inputs
             .into_iter()
@@ -36,11 +32,12 @@ impl<const I: usize> CompiledCircuit<I> {
 
         let advice: [Vec<Fr>; 3] = Default::default();
         let advice = Rc::new(Mutex::new(advice));
-        let inputs = inputs.map(|input| Variable::Compute {
+        let inputs = inputs.map(|input| ComputeVar {
             value: input,
             advice_values: advice.clone(),
         });
-        circuit(inputs);
+
+        C::run(inputs);
         let advice = Rc::try_unwrap(advice).unwrap().into_inner().unwrap();
         let mut rng = rand::thread_rng();
         let advice = advice
@@ -96,8 +93,8 @@ pub struct Proof {
     r: KzgOpening,
     pub public_inputs: Vec<Fr>,
 }
-fn prove<const I: usize>(
-    circuit: &CompiledCircuit<I>,
+fn prove<const I: usize, C: CircuitDescription<I>>(
+    circuit: &CompiledCircuit<I, C>,
     advice: [Poly; 3],
     public_inputs: Vec<Fr>,
 ) -> Proof {
@@ -195,7 +192,11 @@ fn prove<const I: usize>(
     };
     proof
 }
-fn verify<const I: usize>(circuit: &CompiledCircuit<I>, proof: Proof, scheme: &KzgScheme) -> bool {
+fn verify<const I: usize, C: CircuitDescription<I>>(
+    circuit: &CompiledCircuit<I, C>,
+    proof: Proof,
+    scheme: &KzgScheme,
+) -> bool {
     let domain = &circuit.domain;
     let challenges = verify_challenges(&proof);
 
@@ -288,8 +289,8 @@ fn round1(a: &Poly, b: &Poly, c: &Poly, scheme: &KzgScheme) -> [KzgCommitment; 3
         .unwrap()
 }
 
-fn quotient_polynomial<const I: usize>(
-    circuit: &CompiledCircuit<I>,
+fn quotient_polynomial<const I: usize, C: CircuitDescription<I>>(
+    circuit: &CompiledCircuit<I, C>,
     advice: [&Poly; 3],
     // Z and Zw
     acc: (&Poly, &Poly),
@@ -372,8 +373,8 @@ fn quotient_polynomial<const I: usize>(
     let target = target.divide_by_vanishing_poly(*domain).unwrap();
     SlicedPoly::from_poly(target.0, domain.size())
 }
-fn linearisation_poly<const I: usize>(
-    circuit: &CompiledCircuit<I>,
+fn linearisation_poly<const I: usize, C: CircuitDescription<I>>(
+    circuit: &CompiledCircuit<I, C>,
     advice_evals: [Fr; 3],
     acc_evals: [Fr; 2],
     acc: Poly,
@@ -437,8 +438,8 @@ fn linearisation_poly<const I: usize>(
     r
 }
 
-fn linearisation_commitment<const I: usize>(
-    circuit: &CompiledCircuit<I>,
+fn linearisation_commitment<const I: usize, C: CircuitDescription<I>>(
+    circuit: &CompiledCircuit<I, C>,
     advice_evals: [Fr; 3],
     acc: KzgCommitment,
     acc_evals: [Fr; 2],

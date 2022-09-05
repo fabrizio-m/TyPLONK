@@ -8,24 +8,24 @@ Todo:
 - Improve code and documentation.
 
 ```rust 
-use plonk::builder::{CircuitBuilder, Variable};
+    use plonk::description::{CircuitDescription, Var};
 
-fn circuit1(circuit: [Variable; 3]) {
-    let [a, b, c] = circuit;
-    let a = a.clone() * a;
-    let b = b.clone() * b;
-    let c = c.clone() * c;
-    let mut d = a + b;
+struct Circuit;
+impl CircuitDescription<3> for Circuit {
+    fn run<V: Var>(inputs: [V; 3]) {
+        let [a, b, c] = inputs;
+        let a = a.clone() * a;
+        let b = b.clone() * b;
+        let c = c.clone() * c;
+        let d = a + b;
 
-    d.assert_eq(&c);
+        d.assert_eq(&c);
+    }
 }
 
-
 fn main() {
-    let circuit = CircuitBuilder::compile(circuit1);
-    let proof = circuit.prove([3, 4, 5], circuit1, vec![0]);
+    let circuit = Circuit::build();
+    let proof = circuit.prove([3, 4, 5], vec![0]);
     assert!(circuit.verify(proof));
-    let proof = circuit.prove([3, 4, 6], circuit1, vec![0]);
-    assert!(!circuit.verify(proof));
 }
 ```

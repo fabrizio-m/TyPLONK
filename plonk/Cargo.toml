@@ -2,6 +2,7 @@
 name = "plonk"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,3 +19,9 @@ permutation = { path = "../permutation"}
 
 [features]
 default = ["rand"]
+
+[build-dependencies]
+skeptic = "0.13"
+
+[dev-dependencies]
+skeptic = "0.13"

@@ -194,6 +194,7 @@ impl<const C: usize> CompiledPermutation<C> {
     }
 }
 
+#[allow(dead_code)]
 fn print_matrix(matrix: &[usize], cols: usize) {
     println!();
     for row in matrix.chunks(cols) {
@@ -201,6 +202,7 @@ fn print_matrix(matrix: &[usize], cols: usize) {
     }
 }
 
+#[allow(dead_code)]
 fn print_cycle(elems: &[usize]) {
     let mut seen = HashSet::new();
     for elem in elems {
