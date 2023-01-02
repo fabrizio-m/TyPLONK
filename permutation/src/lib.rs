@@ -72,10 +72,10 @@ impl<const C: usize> PermutationBuilder<C> {
                 if aux[left] == aux[right] {
                     continue;
                 }
-                if sizes[aux[left]] < sizes[aux[left]] {
+                if sizes[aux[left]] < sizes[aux[right]] {
                     swap(&mut left, &mut right);
                 }
-                sizes[aux[left]] = sizes[aux[left]] + sizes[aux[left]];
+                sizes[aux[left]] += sizes[aux[right]];
                 //step 4
                 let mut next = right;
                 let aux_left = aux[left];
