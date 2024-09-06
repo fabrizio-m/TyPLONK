@@ -5,7 +5,7 @@ use crate::{
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain};
-use kgz::{srs::Srs, KzgScheme};
+use kzg::{srs::Srs, KzgScheme};
 use permutation::{PermutationBuilder, Tag};
 use std::{
     collections::HashMap,

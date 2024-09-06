@@ -2,7 +2,7 @@ use ark_bls12_381::Fr;
 use ark_ff::UniformRand;
 use ark_serialize::CanonicalSerialize;
 use blake2::{Blake2b, Digest};
-use kgz::KzgCommitment;
+use kzg::KzgCommitment;
 use rand::{prelude::StdRng, SeedableRng};
 
 #[derive(Clone)]

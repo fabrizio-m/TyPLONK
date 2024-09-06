@@ -289,7 +289,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
 
 [[package]]
-name = "kgz"
+name = "kzg"
 version = "0.1.0"
 dependencies = [
  "ark-bls12-381",
@@ -367,7 +367,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
- "kgz",
+ "kzg",
  "rand",
 ]
 
@@ -390,7 +390,7 @@ dependencies = [
  "ark-poly",
  "ark-serialize",
  "blake2",
- "kgz",
+ "kzg",
  "permutation",
  "rand",
  "skeptic",

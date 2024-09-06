@@ -2,7 +2,7 @@ use ark_bls12_381::Fr;
 use ark_ec::PairingEngine;
 use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain};
 use description::CircuitDescription;
-use kgz::{srs::Srs, KzgCommitment};
+use kzg::{srs::Srs, KzgCommitment};
 use permutation::CompiledPermutation;
 use std::marker::PhantomData;
 
