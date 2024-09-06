@@ -8,6 +8,9 @@ Todo:
 - Improve code and documentation.
 
 ```rust 
+
+    extern crate plonk;
+
     use plonk::description::{CircuitDescription, Var};
 
 struct Circuit;

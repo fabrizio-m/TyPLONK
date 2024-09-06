@@ -2,6 +2,6 @@
 
 members = [
     "plonk",
-    "kgz",
+    "kzg",
     "permutation"
 ]

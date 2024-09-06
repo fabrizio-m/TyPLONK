@@ -1,7 +1,7 @@
 use ark_bls12_381::Fr;
 use ark_ff::{One, Zero};
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain, Polynomial};
-use kgz::{KzgCommitment, KzgScheme};
+use kzg::{KzgCommitment, KzgScheme};
 use std::{
     collections::{HashMap, HashSet},
     mem::swap,

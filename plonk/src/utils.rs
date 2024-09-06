@@ -6,8 +6,8 @@ use ark_poly::{
     EvaluationDomain, Polynomial, UVPolynomial,
 };
 #[cfg(test)]
-use kgz::KzgOpening;
-use kgz::{KzgCommitment, KzgScheme};
+use kzg::KzgOpening;
+use kzg::{KzgCommitment, KzgScheme};
 use std::ops::Mul;
 
 pub fn add_to_poly(mut poly: Poly, number: Fr) -> Poly {
@@ -127,7 +127,7 @@ impl<const S: usize> SlicedPoly<S> {
 
 #[test]
 fn slicing() {
-    use kgz::srs::Srs;
+    use kzg::srs::Srs;
     let eval_point = Fr::from(4);
     let coeffs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(|e| Fr::from(e));
     let poly = Poly::from_coefficients_slice(&coeffs);
@@ -178,7 +178,7 @@ fn l0() {
 
 #[test]
 fn sliced() {
-    use kgz::srs::Srs;
+    use kzg::srs::Srs;
     let srs = Srs::random(3);
     let scheme = KzgScheme::new(&srs);
     let point = &Fr::from(4);

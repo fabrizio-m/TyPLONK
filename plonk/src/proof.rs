@@ -10,7 +10,7 @@ use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Evaluations, Polynomial, UVPolynomial,
 };
 use challenges::ChallengeGenerator;
-use kgz::{KzgCommitment, KzgOpening, KzgScheme};
+use kzg::{KzgCommitment, KzgOpening, KzgScheme};
 use permutation::CompiledPermutation;
 use std::{
     convert::TryInto,
